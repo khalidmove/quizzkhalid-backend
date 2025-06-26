@@ -55,30 +55,27 @@ module.exports = {
     fatchRandomeQuestions: async (req, res) => {
         try {
             const payload = req.body
-            const qyizz = await Questions.aggregate([
-                {
-                    $facet: {
-                        "Level-1": [
-                            { $match: { type: "Level-1", category: payload.category, status: { $ne: 'used' } } },
-                            { $sample: { size: Number(payload.limit) } }
-                        ],
-                        "Level-2": [
-                            { $match: { type: "Level-2", category: payload.category, status: { $ne: 'used' } } },
-                            { $sample: { size: Number(payload.limit) } }
-                        ],
-                        "Level-3": [
-                            { $match: { type: "Level-3", category: payload.category, status: { $ne: 'used' } } },
-                            { $sample: { size: Number(payload.limit) } }
-                        ],
-                        "Level-4": [
-                            { $match: { type: "Level-4", category: payload.category, status: { $ne: 'used' } } },
-                            { $sample: { size: Number(payload.limit) } }
-                        ],
-                        "Level-5": [
-                            { $match: { type: "Level-5", category: payload.category } },
-                            { $sample: { size: Number(payload.limit) } }
-                        ]
+            const levels = await Questions.distinct("type", { category: payload.category });
+            const lastitem = levels[levels.length - 1]
+            const facets = {};
+            levels.forEach(level => {
+                facets[level] = [
+                    {
+                        $match: {
+                            type: level,
+                            category: payload.category,
+                            ...(level !== lastitem && { status: { $ne: 'used' } }) // Skip status filter for Level-5
+                        }
+                    },
+                    {
+                        $sample: { size: Number(payload.limit) }
                     }
+                ];
+            });
+
+            const quiz = await Questions.aggregate([
+                {
+                    $facet: facets
                 },
                 {
                     $project: {
@@ -100,9 +97,9 @@ module.exports = {
                 {
                     $replaceRoot: { newRoot: "$data" }
                 }
-            ])
+            ]);
 
-            return response.success(res, qyizz);
+            return response.success(res, quiz);
         } catch (error) {
             return response.error(res, error);
         }
