@@ -9,7 +9,7 @@ const userHelper = require("./../helper/user");
 module.exports = {
   register: async (req, res) => {
     try {
-      const { name, email, password, phone, username } = req.body;
+      const { name, email, password, phone, username, role } = req.body;
 
       if (password.length < 6) {
         return res
@@ -29,7 +29,8 @@ module.exports = {
         email,
         password: hashedPassword,
         phone,
-        username
+        username,
+        role
       });
 
       await newUser.save();
@@ -112,6 +113,7 @@ module.exports = {
     try {
       const otp = req.body.otp;
       const token = req.body.token;
+      console.log(otp, token)
       if (!(otp && token)) {
         return response.badReq(res, { message: "otp and token required." });
       }
@@ -162,4 +164,23 @@ module.exports = {
       return response.error(res, error);
     }
   },
+
+  getprofile: async (req, res) => {
+    try {
+      const user = await User.findById(req.user.id, '-password');
+      return response.success(res, user);
+    } catch (error) {
+      return response.error(res, error);
+    }
+  },
+
+  updateprofile: async (req, res) => {
+    try {
+      const payload = req.body
+      const user = await User.findByIdAndUpdate(req.user.id, payload, { new: true, upsert: true });
+      return response.success(res, user);
+    } catch (error) {
+      return response.error(res, error);
+    }
+  }
 };

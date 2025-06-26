@@ -1,19 +1,17 @@
-const authService = require('@services/authService');
+const passport = require("passport");
 
-module.exports = {
-  authenticate: (req, res, next) => {
-    const token = req.headers['authorization']?.split(' ')[1];
+module.exports = function authMiddleware(allowedRoles = []) {
+  return (req, res, next) => {
+    passport.authenticate("jwt", { session: false }, (err, user) => {
+      console.log('fffdfsdbsfsbf', user, allowedRoles)
+      if (err || !user) return res.status(401).json({ message: "Unauthorized" });
 
-    if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
-    }
+      if (allowedRoles.length && !allowedRoles.includes(user.role)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
 
-    try {
-      const decoded = authService.verifyToken(token);
-      req.user = decoded;
+      req.user = user;
       next();
-    } catch (error) {
-      return res.status(403).json({ message: 'Invalid token' });
-    }
-  },
+    })(req, res, next);
+  };
 };
