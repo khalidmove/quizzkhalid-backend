@@ -7,5 +7,6 @@ router.get("/", quizz.get);
 router.get("/:id", quizz.getbyId);
 router.post("/update", quizz.update);
 router.delete("/delete/:id", quizz.delete);
+router.get("/fetchBackupQuestion/:id", quizz.fetchBackupQuestion);
 
 module.exports = router;
