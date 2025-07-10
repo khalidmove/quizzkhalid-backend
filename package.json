@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "prettier": "prettier --write .",
+    "start:dev": "nodemon server.js",
     "restart": "pm2 restart all --update-env",
     "prettier:check": "prettier --check .",
     "format": "npm run prettier && npm run lint:fix",
