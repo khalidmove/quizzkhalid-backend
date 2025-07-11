@@ -4,6 +4,7 @@ const helmet = require("helmet");
 const morgan = require("morgan");
 const connectDB = require("@config/db");
 const passport = require("passport");
+const { startCronJobs } = require("./cron/quizCron");
 require("@config/passport");
 
 // Load environment variables
@@ -14,6 +15,9 @@ const app = express();
 
 // Connect to Database
 connectDB();
+
+// Start cron jobs
+startCronJobs();
 
 // Middleware
 app.use(express.json());

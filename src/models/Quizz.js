@@ -56,6 +56,10 @@ const QuizzModal = new mongoose.Schema(
       type: Number,
     },
     questions: [LevelSchema],
+    usedQuestions: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Question'
+    }],
   },
   {
     timestamps: true,

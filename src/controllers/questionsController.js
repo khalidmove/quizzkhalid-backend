@@ -54,16 +54,30 @@ module.exports = {
 
     fatchRandomeQuestions: async (req, res) => {
         try {
-            const payload = req.body
+            const payload = req.body;
+            
+            // Get all used question IDs from all quizzes to avoid repetition
+            const Quizz = require('@models/Quizz');
+            const allUsedQuestions = await Quizz.aggregate([
+                { $unwind: { path: '$usedQuestions', preserveNullAndEmptyArrays: true } },
+                { $group: { _id: null, usedQuestions: { $addToSet: '$usedQuestions' } } }
+            ]);
+            
+            const globalUsedQuestionIds = allUsedQuestions.length > 0 
+                ? allUsedQuestions[0].usedQuestions.filter(id => id !== null) 
+                : [];
+            
             const levels = await Questions.distinct("type", { category: payload.category });
-            const lastitem = levels[levels.length - 1]
+            const lastitem = levels[levels.length - 1];
             const facets = {};
+            
             levels.forEach(level => {
                 facets[level] = [
                     {
                         $match: {
                             type: level,
                             category: payload.category,
+                            _id: { $nin: globalUsedQuestionIds }, // Exclude globally used questions
                             ...(level !== lastitem && { status: { $ne: 'used' } }) // Skip status filter for Level-5
                         }
                     },
