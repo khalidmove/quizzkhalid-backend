@@ -7,33 +7,12 @@ module.exports = {
   create: async (req, res) => {
     try {
       const payload = req.body;
-      
-      // Extract question IDs from the payload
-      let questionIdList = [];
-      if (payload.questions && Array.isArray(payload.questions)) {
-        payload.questions.forEach(level => {
-          if (level.que && Array.isArray(level.que)) {
-            questionIdList = questionIdList.concat(level.que.map(q => q._id));
-          }
-        });
-      }
-      
-      // Add questionIdList to usedQuestions if it doesn't exist
-      if (questionIdList.length > 0) {
-        payload.usedQuestions = questionIdList;
-      }
-      
       const quizz = new Quizz(payload);
       const quiz = await quizz.save();
-      
-      // Mark questions as used in the Question collection
-      if (questionIdList.length > 0) {
-        await Questions.updateMany(
-          { _id: { $in: questionIdList } },
-          { $set: { status: 'used' } },
-        );
-      }
-      
+      await Questions.updateMany(
+        { _id: { $in: payload.questionIdList } },
+        { $set: { status: 'used' } },
+      );
       return response.success(res, quiz);
     } catch (error) {
       return response.error(res, error);
@@ -228,7 +207,7 @@ module.exports = {
     }
   },
   fetchBackupQuestion: async (req, res) => {
-    try {
+   try {
       let backupKey = 'Backup Questions';
       let que = await Quizz.findById(req.params.id);
       const hasBackupQuestion = que.questions.find(
@@ -237,17 +216,6 @@ module.exports = {
       if (hasBackupQuestion && hasBackupQuestion.que.length > 0) {
         return response.success(res, que);
       }
-      
-      // Get all used question IDs from all quizzes to avoid repetition
-      const allUsedQuestions = await Quizz.aggregate([
-        { $unwind: { path: '$usedQuestions', preserveNullAndEmptyArrays: true } },
-        { $group: { _id: null, usedQuestions: { $addToSet: '$usedQuestions' } } }
-      ]);
-      
-      const globalUsedQuestionIds = allUsedQuestions.length > 0 
-        ? allUsedQuestions[0].usedQuestions.filter(id => id !== null) 
-        : [];
-      
       const levels = await Questions.distinct('type', {
         category: que.category,
       });
@@ -260,8 +228,7 @@ module.exports = {
           $match: {
             type: lastitem,
             category: que.category,
-            status: { $ne: 'used' },
-            _id: { $nin: globalUsedQuestionIds } // Exclude globally used questions
+            status: { $ne: 'used' }, // Skip status filter for Level-5
           },
         },
         {
@@ -294,84 +261,21 @@ module.exports = {
           $replaceRoot: { newRoot: '$data' },
         },
       ]);
-      
       let questionIdArray = [];
       quiz.map((item) => {
         questionIdArray = questionIdArray.concat(item.que.map((q) => q._id));
       });
-      
-      console.log('New backup questions:', questionIdArray);
-      
-      // Mark questions as used in the Question collection
+      console.log(questionIdArray);
       await Questions.updateMany(
         { _id: { $in: questionIdArray } },
         { $set: { status: 'used' } },
       );
-      
-      // Add the new questions to the current quiz's usedQuestions array
-      await Quizz.findByIdAndUpdate(
-        req.params.id,
-        { $addToSet: { usedQuestions: { $each: questionIdArray } } }
-      );
-      
       que.questions.push(quiz[0]);
       await que.save();
-      
       return response.success(res, que);
     } catch (error) {
       return response.error(res, error);
     }
   },
 
-  // Reset used questions for all quizzes (useful for admin or cron jobs)
-  resetUsedQuestions: async (req, res) => {
-    try {
-      // Reset usedQuestions array for all quizzes
-      const result = await Quizz.updateMany(
-        {},
-        { $set: { usedQuestions: [] } }
-      );
-      
-      // Reset status in Questions collection
-      await Questions.updateMany(
-        { status: 'used' },
-        { $set: { status: 'fresh' } }
-      );
-      
-      return response.success(res, {
-        message: 'All used questions have been reset successfully',
-        modifiedQuizzes: result.modifiedCount
-      });
-    } catch (error) {
-      return response.error(res, error);
-    }
-  },
-
-  // Get statistics about question usage
-  getQuestionUsageStats: async (req, res) => {
-    try {
-      const totalQuestions = await Questions.countDocuments();
-      const usedQuestions = await Questions.countDocuments({ status: 'used' });
-      const freshQuestions = totalQuestions - usedQuestions;
-      
-      const quizzesWithUsedQuestions = await Quizz.aggregate([
-        {
-          $project: {
-            name: 1,
-            category: 1,
-            usedQuestionsCount: { $size: { $ifNull: ['$usedQuestions', []] } }
-          }
-        }
-      ]);
-      
-      return response.success(res, {
-        totalQuestions,
-        usedQuestions,
-        freshQuestions,
-        quizzesWithUsedQuestions
-      });
-    } catch (error) {
-      return response.error(res, error);
-    }
-  },
 };

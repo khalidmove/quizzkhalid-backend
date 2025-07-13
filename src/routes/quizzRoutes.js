@@ -14,8 +14,8 @@ router.get("/removeUserFromQuiz/:id", authMiddleware(["user", "admin"]),quizz.re
 router.post("/submitanswer", quizz.submitanswer);
 router.get("/fetchBackupQuestion/:id", quizz.fetchBackupQuestion);
 
-router.post("/reset-used-questions", authMiddleware(["admin"]), quizz.resetUsedQuestions);
-router.get("/question-usage-stats", authMiddleware(["admin"]), quizz.getQuestionUsageStats);
+// router.post("/reset-used-questions", authMiddleware(["admin"]), quizz.resetUsedQuestions);
+// router.get("/question-usage-stats", authMiddleware(["admin"]), quizz.getQuestionUsageStats);
 
 router.get("/cron/status", authMiddleware(["admin"]), (req, res) => {
   try {

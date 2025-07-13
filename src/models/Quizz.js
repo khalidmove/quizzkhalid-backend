@@ -56,10 +56,17 @@ const QuizzModal = new mongoose.Schema(
       type: Number,
     },
     questions: [LevelSchema],
-    usedQuestions: [{
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Question'
-    }],
+    status: {
+      type: String,
+      enum: ['used', 'fresh'],
+      default: 'fresh',
+    },
+    scheduledTime: {
+      type: String,
+    },
+    scheduledDate: {
+      type: Date,
+    },
   },
   {
     timestamps: true,
