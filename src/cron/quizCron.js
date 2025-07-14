@@ -6,7 +6,7 @@ const TimeSlot = require('@models/timeSlot');
 // const TimeSlot = mongoose.model("TimeSlot");
 
 // Cron job that runs at 7 PM every day (0 19 * * *)
-const dailyQuizupdate = cron.schedule('0 5 * * *', async () => {
+const dailyQuizupdate = cron.schedule('0 15 * * *', async () => {
   try {
     console.log('Running daily option count reset at 7 PM...');
  const today = new Date();

@@ -13,6 +13,8 @@ router.get("/addUserToQuiz/:id", authMiddleware(["user", "admin"]),quizz.addUser
 router.get("/removeUserFromQuiz/:id", authMiddleware(["user", "admin"]),quizz.removeUserFromQuiz);
 router.post("/submitanswer", quizz.submitanswer);
 router.get("/fetchBackupQuestion/:id", quizz.fetchBackupQuestion);
+// router.get("/getquizaccordingtime", quizz.getquizaccordingtime);
+// router.get("/getquizaccording", quizz.getquizaccording);
 
 // router.post("/reset-used-questions", authMiddleware(["admin"]), quizz.resetUsedQuestions);
 // router.get("/question-usage-stats", authMiddleware(["admin"]), quizz.getQuestionUsageStats);

@@ -1,5 +1,6 @@
 const Questions = require('@models/Questions');
 const response = require('../responses');
+const Quizz = require('@models/Quizz');
 
 
 module.exports = {
@@ -51,7 +52,35 @@ module.exports = {
             return response.error(res, error);
         }
     },
-
+freshallquestion: async (req, res) => {
+                        try {
+                          await Questions.updateMany(
+                            { },
+                            { $set: { status: 'fresh' } },
+                          );
+                          
+                          return response.success(res, { message: 'Quizz freshed successfully' });
+                        } catch (err) {
+                          console.error(err);
+                          return response.error(res, err);
+                        }
+                      },
+                       getquizaccordingtime: async (req, res) => {
+                           try {
+                               const today = new Date();
+                               today.setUTCHours(0, 0, 0, 0);
+                               console.log('entering getquizaccordingtime');
+                                                const quiz = await Quizz.findOne({
+                                                  scheduledDate: today,
+                                                  scheduledTime: '8:00 pm',
+                                                });
+                                                return response.success(res,quiz);
+                                                
+                                              } catch (err) {
+                                                console.error(err);
+                                                return response.error(res, err);
+                                              }
+                                            },
     fatchRandomeQuestions: async (req, res) => {
        try {
             const payload = req.body
