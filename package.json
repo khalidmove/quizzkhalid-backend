@@ -5,6 +5,8 @@
   "scripts": {
     "test": "jest --clearCache && jest --coverage",
     "start": "pm2 start src/server.js -i max -f",
+    "kill": "pm2 kill",
+    "logs": "pm2 log",
     "dev": "cross-env NODE_ENV=development nodemon src/server.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

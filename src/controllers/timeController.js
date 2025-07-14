@@ -1,7 +1,7 @@
 "use strict";
 const mongoose = require("mongoose");
 const TimeSlot = mongoose.model("TimeSlot");
-const response = require("./../responses");
+const response = require("../responses");
 
 function timeToMinutes(t) {
   const [time, meridian] = t.split(" ");
@@ -54,7 +54,7 @@ module.exports = {
 
       const timeSlot = new TimeSlot({ startTime });
       await timeSlot.save();
-      return response.ok(res, {
+      return response.success(res, {
         message: "Time slot created successfully",
         timeSlot,
       });
@@ -72,7 +72,7 @@ module.exports = {
         cond.status = true;
       }
       const timeSlots = await TimeSlot.find(cond);
-      return response.ok(res, {
+      return response.success(res, {
         message: "Time slots fetched successfully",
         timeSlots,
       });
@@ -89,7 +89,7 @@ module.exports = {
       if (!timeSlot) {
         return response.notFound(res, { message: "Time slot not found" });
       }
-      return response.ok(res, {
+      return response.success(res, {
         message: "Time slot deleted successfully",
         timeSlot,
       });
@@ -111,7 +111,7 @@ module.exports = {
       if (!timeSlot) {
         return response.notFound(res, { message: "Time slot not found" });
       }
-      return response.ok(res, {
+      return response.success(res, {
         message: "Time slot updated successfully",
         timeSlot,
       });
