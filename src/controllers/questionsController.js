@@ -69,10 +69,9 @@ freshallquestion: async (req, res) => {
                            try {
                                const today = new Date();
                                today.setUTCHours(0, 0, 0, 0);
-                               console.log('entering getquizaccordingtime');
                                                 const quiz = await Quizz.findOne({
                                                   scheduledDate: today,
-                                                  scheduledTime: '8:00 pm',
+                                                  scheduledTime: req?.query?.time,
                                                 });
                                                 return response.success(res,quiz);
                                                 
@@ -85,7 +84,8 @@ freshallquestion: async (req, res) => {
        try {
             const payload = req.body
             const levels = await Questions.distinct("type", { category: payload.category });
-            const lastitem = levels[levels.length - 1]
+            // const lastitem = levels[levels.length - 1]
+            const levelsToUse = levels.slice(0, -1);
             const facets = {};
             levels.forEach(level => {
                 facets[level] = [
@@ -93,7 +93,7 @@ freshallquestion: async (req, res) => {
                         $match: {
                             type: level,
                             category: payload.category,
-                            ...(level !== lastitem && { status: { $ne: 'used' } }) // Skip status filter for Level-5
+                            // ...(level !== lastitem && { status: { $ne: 'used' } }) // Skip status filter for Level-5
                         }
                     },
                     {

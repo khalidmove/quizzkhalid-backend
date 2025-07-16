@@ -13,12 +13,12 @@ module.exports = class jwtService {
         tokenVersion: new Date().toISOString(),
       },
       process.env.JWT_SECRET,
-      {
-        algorithm: process.env.JWT_ALGORITHM,
-        expiresIn: process.env.JWT_EXPIRATION,
-        issuer: process.env.JWT_ISSUER,
-        audience: process.env.JWT_AUDIENCE,
-      }
+      // {
+      //   algorithm: process.env.JWT_ALGORITHM,
+      //   // expiresIn: process.env.JWT_EXPIRATION,
+      //   issuer: process.env.JWT_ISSUER,
+      //   audience: process.env.JWT_AUDIENCE,
+      // }
     );
   }
 };

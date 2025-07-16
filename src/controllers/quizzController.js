@@ -127,14 +127,15 @@ module.exports = {
       const quiz = await Quizz.findById(quizId);
       const availableUsers = quiz.users.filter((u) => u.isAvailable === true);
       if (availableUsers.length > 1) {
-        return response.success(
+        return response.success(res,
           { otherPlayer: true },
-          { message: 'User added to quiz' },
+          { message: 'Users exist to quiz' },
         );
       } else {
         return response.success(
-          { otherPlayer: true },
-          { message: 'User added to quiz' },
+          res,
+          { otherPlayer: false },
+          { message: 'Users does not exist to quiz' },
         );
       }
     } catch (err) {

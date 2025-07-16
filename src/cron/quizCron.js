@@ -2,85 +2,89 @@ const cron = require('node-cron');
 const Quizz = require('@models/Quizz');
 const Questions = require('@models/Questions');
 const TimeSlot = require('@models/timeSlot');
-// const mongoose = require("mongoose");
+const mongoose = require("mongoose");
 // const TimeSlot = mongoose.model("TimeSlot");
 
 // Cron job that runs at 7 PM every day (0 19 * * *)
-const dailyQuizupdate = cron.schedule('0 15 * * *', async () => {
+const dailyQuizupdate = cron.schedule('03 18 * * *', async () => {
   try {
-    console.log('Running daily option count reset at 7 PM...');
- const today = new Date();
-      today.setUTCHours(0, 0, 0, 0);
+  console.log('Running daily option count reset at 7 PM...');
 
-      // 1. Get all active time slots
-      const timeSlots = await TimeSlot.find({ status: true });
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
 
-      if (!timeSlots.length) {
-        console.log('⚠️ No active time slots found.');
-        return;
-      }
+  const timeSlots = await TimeSlot.find({ status: true });
 
-      // 2. Get fresh quizzes equal to time slot count
-      const freshQuizzes = await Quizz.find({ status: 'fresh' }).limit(timeSlots.length);
+  if (!timeSlots.length) {
+    console.log('⚠️ No active time slots found.');
+    return;
+  }
 
-      if (freshQuizzes.length < timeSlots.length) {
-        console.log(`⚠️ Not enough fresh quizzes. Required: ${timeSlots.length}, Found: ${freshQuizzes.length}`);
-        return;
-      }
+  const freshQuizzes = await Quizz.find({ status: 'fresh' }).limit(timeSlots.length);
 
-      // 3. Assign each quiz to a time slot
-      for (let i = 0; i < timeSlots.length; i++) {
-        const quiz = freshQuizzes[i];
-        const slot = timeSlots[i];
+  if (freshQuizzes.length < timeSlots.length) {
+    console.log(`⚠️ Not enough fresh quizzes. Required: ${timeSlots.length}, Found: ${freshQuizzes.length}`);
+    return;
+  }
 
-        quiz.scheduledTime = slot.startTime;
-        quiz.scheduledDate = today;
-        quiz.status = 'used';
+  // ✅ Track all used question IDs globally
+  const alreadyUsedQuestionIds = new Set();
 
-// ✅ Get the last level type
-        const levelTypes = await Questions.distinct('type', {
-          category: quiz.category,
-        });
+  for (let i = 0; i < timeSlots.length; i++) {
+    const quiz = freshQuizzes[i];
+    const slot = timeSlots[i];
 
-        const backupKey = 'Backup Questions';
-        const lastLevel = levelTypes[levelTypes.length - 1];
+    quiz.scheduledTime = slot.startTime;
+    quiz.scheduledDate = today;
+    quiz.status = 'used';
 
-        // ✅ Get 10 backup questions (not used)
-        const backupQuestions = await Questions.aggregate([
-          {
-            $match: {
-              type: lastLevel,
-              category: quiz.category,
-              status: { $ne: 'used' },
+    const backupKey = 'Backup Questions';
+    const levelTypes = await Questions.distinct('type', { category: quiz.category });
+    const backupQuestions = [];
+    const maxBackupCount = 10;
+
+    // ✅ Loop through levels (from last to first)
+    for (let j = levelTypes.length - 1; j >= 0 && backupQuestions.length < maxBackupCount; j--) {
+      const level = levelTypes[j];
+      const remaining = maxBackupCount - backupQuestions.length;
+
+      const questions = await Questions.aggregate([
+        {
+          $match: {
+            type: level,
+            category: quiz.category,
+            status: { $ne: 'used' },
+            _id: {
+              $nin: Array.from(alreadyUsedQuestionIds).map(id => new mongoose.Types.ObjectId(id)),
             },
           },
-          {
-            $sample: { size: 10 },
-          },
-        ]);
+        },
+        { $sample: { size: remaining } },
+      ]);
 
-        if (backupQuestions.length) {
-          quiz.questions.push({
-            level: backupKey,
-            que: backupQuestions,
-          });
-
-          // // ✅ Mark backup questions as used
-          // const ids = backupQuestions.map((q) => q._id);
-          // await Questions.updateMany({ _id: { $in: ids } }, { $set: { status: 'used' } });
-        }
-
-        await quiz.save();
-
-        console.log(`✅ Scheduled quiz ${quiz._id} for time slot ${slot.startTime}`);
-      }
-
-      console.log('✅ All quizzes scheduled successfully.');
-
-    } catch (error) {
-      console.error('❌ Error in quiz scheduler:', error);
+      backupQuestions.push(...questions);
+      questions.forEach(q => alreadyUsedQuestionIds.add(q._id.toString()));
     }
-}, {
+
+    // ✅ Add backup question group only once per quiz
+    if (backupQuestions.length > 0) {
+      quiz.questions.push({
+        level: backupKey,
+        que: backupQuestions,
+      });
+    }
+
+    await quiz.save();
+    console.log(`✅ Scheduled quiz ${quiz._id} for time slot ${slot.startTime}`);
+  }
+
+  console.log('✅ All quizzes scheduled successfully.');
+
+} catch (error) {
+  console.error('❌ Error in quiz scheduler:', error);
+}
+
+},{
   scheduled: false, // Don't start immediately
   timezone: "UTC" // Set your timezone as needed
 });
