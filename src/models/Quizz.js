@@ -40,6 +40,14 @@ const QuizzModal = new mongoose.Schema(
     isAvailable: {
       type: Boolean,
     },
+    answeredCount: { type: Number, default: 0 },
+    backupTimeTaken: { type: Number, default: 0 }, // only if enters backup
+    rank: { type: Number, default: null },
+    leftAtQuestion: { type: Number, default: null }, // Global question number when left
+    correctAnswers: { type: Number, default: 0 },
+    wrongAnswers: { type: Number, default: 0 },
+    enteredBackup: { type: Boolean, default: false },
+    completedBackup: { type: Boolean, default: false },
   },
 ],
 

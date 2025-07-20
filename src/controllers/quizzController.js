@@ -98,24 +98,99 @@ module.exports = {
   removeUserFromQuiz: async (req, res) => {
     const userId = req.user.id;
     const quizId = req.params.id;
+    const {
+      answeredCount,
+      correctAnswers,
+      wrongAnswers,
+      enteredBackup,
+      backupTimeTaken,
+      completedBackup,
+      leftAtQuestion,
+    } = req.body;
     try {
       const quiz = await Quizz.findOne({
         _id: quizId,
         'users.user': userId,
       });
+      if (!quiz) return;
 
       if (quiz) {
-        await Quizz.updateOne(
-          { _id: quizId, 'users.user': userId },
-          { $set: { 'users.$.isAvailable': false } },
-        );
+await Quizz.updateOne(
+  { _id: quizId, 'users.user': userId },
+  {
+    $set: {
+      'users.$.isAvailable': false,
+      'users.$.answeredCount': answeredCount,
+      'users.$.correctAnswers': correctAnswers,
+      'users.$.wrongAnswers': wrongAnswers,
+      'users.$.enteredBackup': enteredBackup,
+      'users.$.backupTimeTaken': enteredBackup ? backupTimeTaken : 0,
+      'users.$.completedBackup': completedBackup,
+      'users.$.leftAtQuestion': leftAtQuestion,
+    },
+  }
+);
+
       } else {
         return response.badReq(res, {
           message: 'User does not exist in this quiz',
         });
       }
+      // Update user stats
+      // const userEntry = quiz.users.find(
+      //   (u) => u.user.toString() === userId.toString(),
+      // );
+      // if (userEntry) {
+      //   userEntry.isAvailable = false;
+      //   userEntry.answeredCount = answeredCount;
+      //   userEntry.correctAnswers = correctAnswers;
+      //   userEntry.wrongAnswers = wrongAnswers;
+      //   userEntry.enteredBackup = enteredBackup;
+      //   userEntry.backupTimeTaken = enteredBackup ? backupTimeTaken : 0;
+      //   userEntry.completedBackup = completedBackup;
+      //   userEntry.leftAtQuestion = leftAtQuestion;
+      // }
 
-      return response.success(res, { message: 'User added to quiz' });
+      // await quiz.save();
+  // const activeUsers = quiz.users.filter((u) => u.isAvailable);
+  //     if (activeUsers.length > 0) {
+        return response.success(res, {
+          message:
+            'Your quiz is submitted. Ranking will be available once all users finish.',
+          showStats: {
+            answeredCount,
+            correctAnswers,
+            wrongAnswers,
+            enteredBackup,
+            backupTimeTaken,
+            completedBackup,
+          },
+          rank: null,
+        });
+      // }
+
+      // // All users done, now rank
+      // const rankedUsers = [...quiz.users].sort((a, b) => {
+      //   if (b.answeredCount !== a.answeredCount)
+      //     return b.answeredCount - a.answeredCount;
+      //   return a.backupTimeTaken - b.backupTimeTaken;
+      // });
+
+      // rankedUsers.forEach((user, index) => {
+      //   user.rank = index + 1;
+      // });
+
+      // await quiz.save();
+
+      // // Find current user's rank
+      // const currentUserRank = rankedUsers.find(
+      //   (u) => u.user.toString() === userId.toString(),
+      // )?.rank;
+
+      // return response.success(res, {
+      //   currentUserRank,
+      //   message: 'Quiz completed. Final ranking is available.',
+      // });
     } catch (err) {
       console.error(err);
       return response.error(res, err);
@@ -127,7 +202,8 @@ module.exports = {
       const quiz = await Quizz.findById(quizId);
       const availableUsers = quiz.users.filter((u) => u.isAvailable === true);
       if (availableUsers.length > 1) {
-        return response.success(res,
+        return response.success(
+          res,
           { otherPlayer: true },
           { message: 'Users exist to quiz' },
         );
@@ -147,95 +223,95 @@ module.exports = {
     try {
       //            const bulk = [];
       // const submissionData=req?.body?.data
-      
+
       // submissionData.forEach(({ questionId, selectedOption }) => {
-        //   bulk.push({
-          //     updateOne: {
-            //       filter: {
-              //         "questions.que._id": questionId,
-              //       },
-              //       update: {
-                //         $inc: {
-                  //           "questions.$[].que.$[q].option.$[opt].count": 1,
-                  //         },
-                  //       },
-                  //       arrayFilters: [
-                    //         { "q._id": questionId },
-                    //         { "opt.name": selectedOption },
-                    //       ],
-                    //     },
-                    //   });
-                    // });
-                    
-                    // await Quizz.bulkWrite(bulk);
-                    // const { quizId, questionId } = req.params;
-                    const { selectedOption, quizId, questionId } = req.body;
-                    // console.log(selectedOption,quizId,questionId)
-                    // const quiz = await Quizz.findById(quizId);
-                    
-                    // for (const level of quiz.questions) {
-                      //   const question = level.que.find(q => q._id.toString() === questionId);
-                      //   if (question) {
-                        //     const option = question.option.find(o => o.name === selectedOption);
-                        //     if (option) {
-                          //       option.count += 1;
-                          //       await quiz.save();
-                          //       return res.json({ status: true, message: "Count incremented via fallback" });
-                          //     }
-                          //   }
-                          // }
-                          
-                          await Quizz.updateOne(
-                            {
-                              _id: quizId,
-                              'questions.que._id': questionId,
-                            },
-                            {
-                              $inc: {
-                                'questions.$[].que.$[q].option.$[o].count': 1,
-                              },
-                            },
-                            {
-                              arrayFilters: [
-                                { 'q._id': new mongoose.Types.ObjectId(questionId) },
-                                { 'o.name': selectedOption },
-                              ],
-                            },
-                          );
-                          return response.success(res, { message: 'Quizz updated successfully' });
-                        } catch (error) {
-                          return response.error(res, error);
-                        }
-                      },
-                      // getquizaccordingtime: async (req, res) => {
-                      //   console.log('entering getquizaccordingtime');
-                      //   try {
-                      //     const today = new Date();
-                      //     today.setUTCHours(0, 0, 0, 0);
-                      //     // const quiz = await Quizz.findOne({
-                      //     //   scheduledDate: today,
-                      //     //   scheduledTime: '8:00 pm',
-                      //     // });
-                      //     return response.success(res);
-                          
-                      //   } catch (err) {
-                      //     console.error(err);
-                      //     return response.error(res, err);
-                      //   }
-                      // },
-                      
-                      fetchBackupQuestion: async (req, res) => {
-                        try {
-                          let backupKey = 'Backup Questions';
-                          let que = await Quizz.findById(req.params.id);
-                          const hasBackupQuestion = que.questions.find(
-                            (f) => f.level === backupKey,
-                          );
-                          if (hasBackupQuestion && hasBackupQuestion.que.length > 0) {
-                            return response.success(res, que);
-                          }
-                          const levels = await Questions.distinct('type', {
-                            category: que.category,
+      //   bulk.push({
+      //     updateOne: {
+      //       filter: {
+      //         "questions.que._id": questionId,
+      //       },
+      //       update: {
+      //         $inc: {
+      //           "questions.$[].que.$[q].option.$[opt].count": 1,
+      //         },
+      //       },
+      //       arrayFilters: [
+      //         { "q._id": questionId },
+      //         { "opt.name": selectedOption },
+      //       ],
+      //     },
+      //   });
+      // });
+
+      // await Quizz.bulkWrite(bulk);
+      // const { quizId, questionId } = req.params;
+      const { selectedOption, quizId, questionId } = req.body;
+      // console.log(selectedOption,quizId,questionId)
+      // const quiz = await Quizz.findById(quizId);
+
+      // for (const level of quiz.questions) {
+      //   const question = level.que.find(q => q._id.toString() === questionId);
+      //   if (question) {
+      //     const option = question.option.find(o => o.name === selectedOption);
+      //     if (option) {
+      //       option.count += 1;
+      //       await quiz.save();
+      //       return res.json({ status: true, message: "Count incremented via fallback" });
+      //     }
+      //   }
+      // }
+
+      await Quizz.updateOne(
+        {
+          _id: quizId,
+          'questions.que._id': questionId,
+        },
+        {
+          $inc: {
+            'questions.$[].que.$[q].option.$[o].count': 1,
+          },
+        },
+        {
+          arrayFilters: [
+            { 'q._id': new mongoose.Types.ObjectId(questionId) },
+            { 'o.name': selectedOption },
+          ],
+        },
+      );
+      return response.success(res, { message: 'Quizz updated successfully' });
+    } catch (error) {
+      return response.error(res, error);
+    }
+  },
+  // getquizaccordingtime: async (req, res) => {
+  //   console.log('entering getquizaccordingtime');
+  //   try {
+  //     const today = new Date();
+  //     today.setUTCHours(0, 0, 0, 0);
+  //     // const quiz = await Quizz.findOne({
+  //     //   scheduledDate: today,
+  //     //   scheduledTime: '8:00 pm',
+  //     // });
+  //     return response.success(res);
+
+  //   } catch (err) {
+  //     console.error(err);
+  //     return response.error(res, err);
+  //   }
+  // },
+
+  fetchBackupQuestion: async (req, res) => {
+    try {
+      let backupKey = 'Backup Questions';
+      let que = await Quizz.findById(req.params.id);
+      const hasBackupQuestion = que.questions.find(
+        (f) => f.level === backupKey,
+      );
+      if (hasBackupQuestion && hasBackupQuestion.que.length > 0) {
+        return response.success(res, que);
+      }
+      const levels = await Questions.distinct('type', {
+        category: que.category,
       });
       const lastitem = levels[levels.length - 1];
 
@@ -295,5 +371,4 @@ module.exports = {
       return response.error(res, error);
     }
   },
-
 };
