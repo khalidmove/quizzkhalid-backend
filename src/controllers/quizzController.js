@@ -1,7 +1,9 @@
+const mongoose = require('mongoose');
 const Questions = require('@models/Questions');
 const response = require('../responses');
 const Quizz = require('@models/Quizz');
-const mongoose = require('mongoose');
+const TimeSlot = mongoose.model("TimeSlot");
+const moment = require("moment");
 
 module.exports = {
   create: async (req, res) => {
@@ -371,4 +373,297 @@ await Quizz.updateOne(
       return response.error(res, error);
     }
   },
+  getuserquizhistory: async (req, res) => {
+
+      try {
+    const userId = req.user.id;
+    const page = parseInt(req.query.page) || 1;
+const limit = parseInt(req.query.limit) || 10;
+const skip = (page - 1) * limit;
+
+const quizzes = await Quizz.find({ 'users.user': userId })
+  .select('users name scheduledDate scheduledTime questions createdAt')
+  .sort({ createdAt: -1 }) // latest first
+  .skip(skip)
+  .limit(limit)
+  .lean();
+
+
+    const history = [];
+
+    for (const quiz of quizzes) {
+      const userIndex = quiz.users.findIndex(u => u.user.toString() === userId);
+      if (userIndex === -1) continue;
+
+      // Step 2: Check if rank is already calculated
+      const isRankMissing = quiz.users.some(u => u.rank == null);
+      const allLeft = quiz.users.every(u => u.isAvailable === false);
+
+      if (isRankMissing && allLeft) {
+        // Step 3: Calculate rank by answeredCount & backupTimeTaken
+        const ranked = [...quiz.users].sort((a, b) => {
+          if (a.answeredCount !== b.answeredCount) {
+            return b.answeredCount - a.answeredCount;
+          }
+          return a.backupTimeTaken - b.backupTimeTaken;
+        });
+
+        // Step 4: Assign rank and update
+        ranked.forEach((user, index) => {
+          user.rank = index + 1;
+        });
+
+        await Quizz.updateOne(
+          { _id: quiz._id },
+          { $set: { users: ranked } }
+        );
+
+        quiz.users = ranked; // update locally too
+      }
+
+      // Step 5: Push current user's data
+      const userData = quiz.users[userIndex];
+
+      history.push({
+        quizId: quiz._id,
+        name: quiz.name,
+        scheduledDate: quiz.scheduledDate,
+        scheduledTime: quiz.scheduledTime,
+        answeredCount: userData.answeredCount,
+        backupTimeTaken: userData.backupTimeTaken,
+        correctAnswers: userData.correctAnswers,
+        wrongAnswers: userData.wrongAnswers,
+        rank: userData.rank ?? null,
+      });
+    }
+      return response.success(res, history);
+    } catch (err) {
+      console.error(err);
+      return response.error(res, err);
+    }
+  },
+  getuserstats: async (req, res) => {
+try {
+    const userId = req.user.id;
+
+    // 1. Fetch all quizzes where user participated
+    const quizzes = await Quizz.find({ 'users.user': userId })
+      .select('users scheduledDate scheduledTime')
+      .lean();
+
+    let totalQuizzes = 0;
+    let winerCount = 0; // 1st, 2nd, or 3rd
+    let totalRankSum = 0;
+    let rankCount = 0;
+
+    for (const quiz of quizzes) {
+      const userIndex = quiz.users.findIndex(u => u.user.toString() === userId);
+      if (userIndex === -1) continue;
+
+      totalQuizzes++;
+
+      const isRankMissing = quiz.users.some(u => u.rank == null);
+      const allLeft = quiz.users.every(u => u.isAvailable === false);
+
+      if (isRankMissing && allLeft) {
+        // Ranking logic same as before
+        const ranked = [...quiz.users].sort((a, b) => {
+          if (a.answeredCount !== b.answeredCount) {
+            return b.answeredCount - a.answeredCount;
+          }
+          return a.backupTimeTaken - b.backupTimeTaken;
+        });
+
+        ranked.forEach((user, index) => {
+          user.rank = index + 1;
+        });
+
+        await Quizz.updateOne(
+          { _id: quiz._id },
+          { $set: { users: ranked } }
+        );
+
+        quiz.users = ranked;
+      }
+
+      const userData = quiz.users[userIndex];
+      if (userData.rank != null) {
+        totalRankSum += userData.rank;
+        rankCount++;
+
+        if ([1, 2, 3].includes(userData.rank)) {
+          winerCount++;
+        }
+      }
+    }
+
+    const averageRank = rankCount > 0 ? (totalRankSum / rankCount).toFixed(0) : null;
+
+    return response.success(res, {
+      totalQuizzes,
+      winerQuizNo: winerCount,
+      averageRank,
+    });
+  } catch (err) {
+    console.error(err);
+    return response.error(res, err);
+  }
+},
+
+ getLeaderboard : async (req, res) => {
+ try {
+const now = moment();
+const timeSlots = await TimeSlot.find({ status: true }).sort({ startTime: 1 });
+
+const responseData = [];
+
+const todayStart = moment().startOf('day').toDate();
+const todayEnd = moment().endOf('day').toDate();
+
+const yesterdayStart = moment().subtract(1, 'day').startOf('day').toDate();
+const yesterdayEnd = moment().subtract(1, 'day').endOf('day').toDate();
+
+for (let slot of timeSlots) {
+  const [slotHour, slotMinute] = slot.startTime.split(':').map(Number);
+  const todaySlotStart = moment().set({ hour: slotHour, minute: slotMinute, second: 0, millisecond: 0 });
+  const todaySlotEnd = moment(todaySlotStart).add(20, 'minutes');
+
+  let finalQuiz = null;
+
+  if (now.isSameOrAfter(todaySlotEnd)) {
+    finalQuiz = await Quizz.findOne({
+      scheduledDate: { $gte: todayStart, $lt: todayEnd },
+      scheduledTime: slot.startTime,
+    }).populate('users.user', 'name username').lean();
+  }
+
+  if (!finalQuiz || finalQuiz?.users?.some(u => u.rank == null)) {
+    finalQuiz = await Quizz.findOne({
+      scheduledDate: { $gte: yesterdayStart, $lt: yesterdayEnd },
+      scheduledTime: slot.startTime,
+    }).populate('users.user', 'name avatar').lean();
+  }
+
+  console.log('--- Slot:', slot.startTime, '| finalQuiz:', finalQuiz?._id ?? 'null');
+
+  if (!finalQuiz) continue;
+
+  const allLeft = finalQuiz.users.every(u => u.isAvailable === false);
+  const isRankMissing = finalQuiz.users.some(u => u.rank == null);
+
+  if (isRankMissing && allLeft) {
+    const ranked = [...finalQuiz.users].sort((a, b) => {
+      if (a.answeredCount !== b.answeredCount) return b.answeredCount - a.answeredCount;
+      return a.backupTimeTaken - b.backupTimeTaken;
+    }).map((u, i) => ({ ...u, rank: i + 1 }));
+
+    await Quizz.updateOne({ _id: finalQuiz._id }, { $set: { users: ranked } });
+    finalQuiz.users = ranked;
+  }
+
+  const topThree = finalQuiz.users
+    .filter(u => u.rank && u.rank <= 3)
+    .sort((a, b) => a.rank - b.rank)
+    .map(u => ({
+      userId: u.user,
+      rank: u.rank,
+      correctAnswers: u.correctAnswers,
+      wrongAnswers: u.wrongAnswers,
+      answeredCount: u.answeredCount,
+    }));
+
+  if (topThree.length > 0) {
+    responseData.push({
+      slot: slot.startTime,
+      date: moment(finalQuiz.scheduledDate).format('YYYY-MM-DD'),
+      winners: topThree,
+    });
+  }
+}
+
+return res.json({ success: true, data: responseData });
+
+  } catch (err) {
+    console.error('Error fetching winners by time slot:', err);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+},
+//  getQuizWinners : async (req, res) => {
+//   try {
+//     const now = new Date();
+
+//     // Step 1: Find all quizzes whose scheduled time + 20 mins has passed
+//     const quizzes = await Quizz.find({
+//       scheduledDate: { $lte: now }, // any past date or today
+//     })
+//       .select('name users scheduledDate scheduledTime')
+//       .lean();
+
+//     const winnersList = [];
+
+//     for (const quiz of quizzes) {
+//       const quizDateTime = new Date(`${quiz.scheduledDate}T${quiz.scheduledTime}`);
+//       const endTime = new Date(quizDateTime.getTime() + 20 * 60000);
+
+//       if (now < endTime) continue; // 20 min not passed, skip
+
+//       // Check if rank is already calculated
+//       const isRankMissing = quiz.users.some(u => u.rank == null);
+//       const allLeft = quiz.users.every(u => u.isAvailable === false);
+
+//       if (isRankMissing && allLeft) {
+//         // Calculate ranking
+//         const ranked = [...quiz.users].sort((a, b) => {
+//           if (a.answeredCount !== b.answeredCount) {
+//             return b.answeredCount - a.answeredCount;
+//           }
+//           return a.backupTimeTaken - b.backupTimeTaken;
+//         });
+
+//         ranked.forEach((user, index) => {
+//           user.rank = index + 1;
+//         });
+
+//         await Quizz.updateOne(
+//           { _id: quiz._id },
+//           { $set: { users: ranked } }
+//         );
+
+//         quiz.users = ranked;
+//       }
+
+//       // Get top 3 users
+//       const top3 = quiz.users
+//         .filter(u => u.rank && u.rank <= 3)
+//         .map(u => ({
+//           userId: u.user,
+//           rank: u.rank,
+//           answeredCount: u.answeredCount,
+//         }))
+//         .sort((a, b) => a.rank - b.rank);
+
+//       if (top3.length > 0) {
+//         winnersList.push({
+//           quizId: quiz._id,
+//           name: quiz.name,
+//           scheduledDate: quiz.scheduledDate,
+//           scheduledTime: quiz.scheduledTime,
+//           winners: top3,
+//         });
+//       }
+//     }
+
+//     // Sort latest first by date & time
+//     winnersList.sort((a, b) => {
+//       const aTime = new Date(`${a.scheduledDate}T${a.scheduledTime}`);
+//       const bTime = new Date(`${b.scheduledDate}T${b.scheduledTime}`);
+//       return bTime - aTime;
+//     });
+
+//     return response.success(res, winnersList);
+//   } catch (err) {
+//     console.error(err);
+//     return response.error(res, err);
+//   }
+// },
 };

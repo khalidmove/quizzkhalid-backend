@@ -5,6 +5,10 @@ const { getCronStatus, dailyOptionResetCron } = require('../cron/quizCron');
 
 const router = express.Router();
 router.post('/create', quizz.create);
+router.get("/getuserquizhistory",authMiddleware(["user", "admin"]), quizz.getuserquizhistory);
+router.get("/getuserstats",authMiddleware(["user", "admin"]), quizz.getuserstats);
+// router.get("/getQuizWinners",authMiddleware(["user", "admin"]), quizz.getQuizWinners);
+router.get("/getLeaderboard",authMiddleware(["user", "admin"]), quizz.getLeaderboard);
 router.get("/", quizz.get);
 router.get("/:id", quizz.getbyId);
 router.post("/update", quizz.update);
