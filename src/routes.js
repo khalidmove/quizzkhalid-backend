@@ -3,6 +3,7 @@ const questionRoutes = require("@routes/questionRoute");
 const quizzRoutes = require("@routes/quizzRoutes");
 const categoruRoutes = require("@routes/categoruRoutes");
 const timeSlotRoutes = require("@routes/timeSlotRoutes");
+const subscriptionRoutes = require("@routes/subscriptionRoutes");
 
 module.exports = (app) => {
   app.use('/api/auth', authRoutes);
@@ -10,5 +11,6 @@ module.exports = (app) => {
   app.use('/api/quizz', quizzRoutes);
   app.use('/api/category', categoruRoutes);
   app.use('/api/time', timeSlotRoutes);
+  app.use('/api/subscription', subscriptionRoutes);
 };
 

@@ -65,6 +65,9 @@ module.exports = {
       }
 
       const token = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET);
+     
+      user.token=token
+      await user.save()
 
       response.success(res, {
         message: 'Login successful',

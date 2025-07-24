@@ -23,9 +23,17 @@ const userSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    alternate_phone: {
+      type: String,
+      trim: true,
+    },
     username: {
       type: String,
       trim: true,
+      unique:true
+    },
+    token: {
+      type: String,
     },
     password: {
       type: String,
