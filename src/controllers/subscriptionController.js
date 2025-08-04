@@ -2,7 +2,6 @@ const response = require("../responses");
 const mongoose = require("mongoose");
 // const Subscription = mongoose.model("Subscription");
 const Subscription = require("../models/subscription");
-const subscription = require("../models/subscription");
 
 module.exports = {
   create: async (req, res) => {

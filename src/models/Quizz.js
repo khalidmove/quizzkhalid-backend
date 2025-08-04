@@ -32,24 +32,24 @@ const LevelSchema = new mongoose.Schema({
 const QuizzModal = new mongoose.Schema(
   {
     users: [
-  {
-    user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-    },
-    isAvailable: {
-      type: Boolean,
-    },
-    answeredCount: { type: Number, default: 0 },
-    backupTimeTaken: { type: Number, default: 0 }, // only if enters backup
-    rank: { type: Number, default: null },
-    leftAtQuestion: { type: Number, default: null }, // Global question number when left
-    correctAnswers: { type: Number, default: 0 },
-    wrongAnswers: { type: Number, default: 0 },
-    enteredBackup: { type: Boolean, default: false },
-    completedBackup: { type: Boolean, default: false },
-  },
-],
+      {
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+        },
+        isAvailable: {
+          type: Boolean,
+        },
+        answeredCount: { type: Number, default: 0 },
+        totalTimeTaken: { type: Number, default: 0 },
+        rank: { type: Number, default: null },
+        leftAtQuestion: { type: Number, default: null }, // Global question number when left
+        correctAnswers: { type: Number, default: 0 },
+        wrongAnswers: { type: Number, default: 0 },
+        enteredBackup: { type: Boolean, default: false },
+        completedBackup: { type: Boolean, default: false },
+      },
+    ],
 
     name: {
       type: String,
@@ -74,6 +74,20 @@ const QuizzModal = new mongoose.Schema(
     },
     scheduledDate: {
       type: Date,
+    },
+    voting: {
+      started: { type: Boolean, default: false },
+      result: {
+        type: String,
+        enum: ['yes', 'no', 'pending'],
+        default: 'pending',
+      },
+      votes: [
+        {
+          user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+          choice: { type: String, enum: ['yes', 'no'] },
+        },
+      ],
     },
   },
   {

@@ -105,7 +105,7 @@ module.exports = {
       correctAnswers,
       wrongAnswers,
       enteredBackup,
-      backupTimeTaken,
+      totalTimeTaken,
       completedBackup,
       leftAtQuestion,
     } = req.body;
@@ -126,7 +126,7 @@ await Quizz.updateOne(
       'users.$.correctAnswers': correctAnswers,
       'users.$.wrongAnswers': wrongAnswers,
       'users.$.enteredBackup': enteredBackup,
-      'users.$.backupTimeTaken': enteredBackup ? backupTimeTaken : 0,
+      'users.$.totalTimeTaken': enteredBackup ? totalTimeTaken : 0,
       'users.$.completedBackup': completedBackup,
       'users.$.leftAtQuestion': leftAtQuestion,
     },
@@ -148,7 +148,7 @@ await Quizz.updateOne(
       //   userEntry.correctAnswers = correctAnswers;
       //   userEntry.wrongAnswers = wrongAnswers;
       //   userEntry.enteredBackup = enteredBackup;
-      //   userEntry.backupTimeTaken = enteredBackup ? backupTimeTaken : 0;
+      //   userEntry.totalTimeTaken = enteredBackup ? totalTimeTaken : 0;
       //   userEntry.completedBackup = completedBackup;
       //   userEntry.leftAtQuestion = leftAtQuestion;
       // }
@@ -164,7 +164,7 @@ await Quizz.updateOne(
             correctAnswers,
             wrongAnswers,
             enteredBackup,
-            backupTimeTaken,
+            totalTimeTaken,
             completedBackup,
           },
           rank: null,
@@ -175,7 +175,7 @@ await Quizz.updateOne(
       // const rankedUsers = [...quiz.users].sort((a, b) => {
       //   if (b.answeredCount !== a.answeredCount)
       //     return b.answeredCount - a.answeredCount;
-      //   return a.backupTimeTaken - b.backupTimeTaken;
+      //   return a.totalTimeTaken - b.totalTimeTaken;
       // });
 
       // rankedUsers.forEach((user, index) => {
@@ -284,6 +284,40 @@ await Quizz.updateOne(
     } catch (error) {
       return response.error(res, error);
     }
+  },
+  givevote: async (req, res) => {
+    try {
+      const { choice, quizId } = req.body;
+ const userId = req?.user?.id;
+
+
+  await Quizz.updateOne(
+    { _id: quizId },
+    {
+      $push: {
+        'voting.votes': { user: userId, choice },
+      },
+    }
+  );
+      return response.success(res, { message: 'Quizz updated successfully' });
+    } catch (error) {
+      return response.error(res, error);
+    }
+  },
+  getvotedata: async (req, res) => {
+    try {
+    const quiz = await Quizz.findById(req.query.quizId).lean();
+    const votes = quiz?.voting?.votes || [];
+
+    const yes = votes.filter(v => v.choice === 'yes').length;
+    const no = votes.filter(v => v.choice === 'no').length;
+
+    return res.json({ status: true, data: { yes, no } });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ status: false, message: 'Server error' });
+  }
+
   },
   // getquizaccordingtime: async (req, res) => {
   //   console.log('entering getquizaccordingtime');
@@ -400,12 +434,12 @@ const quizzes = await Quizz.find({ 'users.user': userId })
       const allLeft = quiz.users.every(u => u.isAvailable === false);
 
       if (isRankMissing && allLeft) {
-        // Step 3: Calculate rank by answeredCount & backupTimeTaken
+        // Step 3: Calculate rank by answeredCount & totalTimeTaken
         const ranked = [...quiz.users].sort((a, b) => {
           if (a.answeredCount !== b.answeredCount) {
             return b.answeredCount - a.answeredCount;
           }
-          return a.backupTimeTaken - b.backupTimeTaken;
+          return a.totalTimeTaken - b.totalTimeTaken;
         });
 
         // Step 4: Assign rank and update
@@ -430,7 +464,7 @@ const quizzes = await Quizz.find({ 'users.user': userId })
         scheduledDate: quiz.scheduledDate,
         scheduledTime: quiz.scheduledTime,
         answeredCount: userData.answeredCount,
-        backupTimeTaken: userData.backupTimeTaken,
+        totalTimeTaken: userData.totalTimeTaken,
         correctAnswers: userData.correctAnswers,
         wrongAnswers: userData.wrongAnswers,
         rank: userData.rank ?? null,
@@ -471,7 +505,7 @@ try {
           if (a.answeredCount !== b.answeredCount) {
             return b.answeredCount - a.answeredCount;
           }
-          return a.backupTimeTaken - b.backupTimeTaken;
+          return a.totalTimeTaken - b.totalTimeTaken;
         });
 
         ranked.forEach((user, index) => {
@@ -554,7 +588,7 @@ for (let slot of timeSlots) {
   if (isRankMissing && allLeft) {
     const ranked = [...finalQuiz.users].sort((a, b) => {
       if (a.answeredCount !== b.answeredCount) return b.answeredCount - a.answeredCount;
-      return a.backupTimeTaken - b.backupTimeTaken;
+      return a.totalTimeTaken - b.totalTimeTaken;
     }).map((u, i) => ({ ...u, rank: i + 1 }));
 
     await Quizz.updateOne({ _id: finalQuiz._id }, { $set: { users: ranked } });
@@ -617,7 +651,7 @@ return res.json({ success: true, data: responseData });
 //           if (a.answeredCount !== b.answeredCount) {
 //             return b.answeredCount - a.answeredCount;
 //           }
-//           return a.backupTimeTaken - b.backupTimeTaken;
+//           return a.totalTimeTaken - b.totalTimeTaken;
 //         });
 
 //         ranked.forEach((user, index) => {

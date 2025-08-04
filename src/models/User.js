@@ -49,6 +49,19 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+     paymentid: {
+      type: String,
+    },
+    planExp: {
+      type: Date,
+    },
+    subscriptiondata:{
+      type:Object
+    },
+    subscription: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "subscription",
+    },
 
   },
   { timestamps: true },

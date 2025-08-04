@@ -9,6 +9,8 @@ router.get("/getuserquizhistory",authMiddleware(["user", "admin"]), quizz.getuse
 router.get("/getuserstats",authMiddleware(["user", "admin"]), quizz.getuserstats);
 // router.get("/getQuizWinners",authMiddleware(["user", "admin"]), quizz.getQuizWinners);
 router.get("/getLeaderboard",authMiddleware(["user", "admin"]), quizz.getLeaderboard);
+router.post("/givevote",authMiddleware(["user", "admin"]), quizz.givevote);
+router.get("/getvotedata",authMiddleware(["user", "admin"]), quizz.getvotedata);
 router.get("/", quizz.get);
 router.get("/:id", quizz.getbyId);
 router.post("/update", quizz.update);
