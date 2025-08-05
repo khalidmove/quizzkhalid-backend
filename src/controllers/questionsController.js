@@ -87,7 +87,7 @@ freshallquestion: async (req, res) => {
             // const lastitem = levels[levels.length - 1]
             const levelsToUse = levels.slice(0, -1);
             const facets = {};
-            levels.forEach(level => {
+            levelsToUse.forEach(level => {
                 facets[level] = [
                     {
                         $match: {
