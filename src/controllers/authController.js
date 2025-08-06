@@ -185,5 +185,16 @@ module.exports = {
     } catch (error) {
       return response.error(res, error);
     }
-  }
+  },
+  fileUpload: async (req, res) => {
+    try {
+      let key = req.file && req.file.key;
+      return response.success(res, {
+        message: "File uploaded.",
+        file: `${process.env.ASSET_ROOT}/${key}`,
+      });
+    } catch (error) {
+      return response.error(res, error);
+    }
+  },
 };
