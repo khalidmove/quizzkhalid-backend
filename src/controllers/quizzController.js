@@ -221,6 +221,20 @@ await Quizz.updateOne(
       return response.error(res, err);
     }
   },
+  playerNumbers: async (req, res) => {
+    const quizId = req.params.id;
+    try {
+      const quiz = await Quizz.findById(quizId);
+      const availableUsers = quiz.users.filter((u) => u.isAvailable === true);
+        return response.success(
+          res,
+          { playerNumber: availableUsers.length },
+        );
+    } catch (err) {
+      console.error(err);
+      return response.error(res, err);
+    }
+  },
   submitanswer: async (req, res) => {
     try {
       //            const bulk = [];
@@ -622,6 +636,95 @@ return res.json({ success: true, data: responseData });
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 },
+getTopSecondSlotWinners : async (req, res) => {
+  try {
+  const timeSlots = await TimeSlot.find({ status: true });
+
+  if (timeSlots.length < 2) {
+    return res.json({ success: false, message: "Not enough time slots" });
+  }
+
+  const secondSlot = timeSlots[1];
+  const slotTime24hr = moment(secondSlot.startTime, ["h:mm A"]).format("HH:mm");
+  const now = moment();
+
+  const results = [];
+
+  // Step 1: Check today's slot (only if 20 min passed)
+  const todaySlotMoment = moment(`${moment().format("YYYY-MM-DD")} ${slotTime24hr}`, "YYYY-MM-DD HH:mm");
+  if (now.isAfter(todaySlotMoment.clone().add(20, "minutes"))) {
+    const todayQuiz = await Quizz.findOne({
+      scheduledDate: {
+        $gte: moment().startOf("day").toDate(),
+        $lt: moment().endOf("day").toDate(),
+      },
+      scheduledTime: secondSlot.startTime,
+      "users.rank": 1
+    })
+    .populate("users.user", "name avatar")
+    .lean();
+console.log('todayQuiz', todayQuiz)
+    if (todayQuiz) {
+      const winner = todayQuiz.users.find(u => u.rank === 1);
+      if (winner) {
+        results.push({
+          date: moment().format("DD/MM/YYYY"),
+          slot: secondSlot.startTime,
+          winner: {
+            userId: winner.user._id,
+            name: winner.user.name,
+            avatar: winner.user.avatar,
+            correctAnswers: winner.correctAnswers,
+            totalTimeTaken: winner.totalTimeTaken,
+          }
+        });
+      }
+    }
+  }
+
+  // Step 2: Fill remaining slots from past days
+  let dayOffset = 1; // start from yesterday
+  while (results.length < 3 && dayOffset <= 7) {
+    const targetDate = moment().subtract(dayOffset, "days");
+console.log('secondSlot.startTime',secondSlot.startTime)
+    const quiz = await Quizz.findOne({
+      scheduledDate: {
+        $gte: targetDate.clone().startOf("day").toDate(),
+        $lt: targetDate.clone().endOf("day").toDate(),
+      },
+      scheduledTime: secondSlot.startTime,
+      "users.rank": 1
+    })
+    .populate("users.user", "name avatar")
+    .lean();
+console.log('quiz',quiz)
+    if (quiz) {
+      const winner = quiz.users.find(u => u.rank === 1);
+      if (winner) {
+        results.push({
+          date: targetDate.format("DD/MM/YYYY"),
+          slot: secondSlot.startTime,
+          winner: {
+            userId: winner.user._id,
+            name: winner.user.name,
+            avatar: winner.user.avatar,
+            correctAnswers: winner.correctAnswers,
+            totalTimeTaken: winner.totalTimeTaken,
+          }
+        });
+      }
+    }
+    dayOffset++;
+  }
+
+  return res.json({ status: true, data: results });
+
+} catch (err) {
+  console.error("Error in getTopSecondSlotWinners:", err);
+  return res.status(500).json({ success: false, message: "Server error" });
+}
+
+}
 //  getQuizWinners : async (req, res) => {
 //   try {
 //     const now = new Date();

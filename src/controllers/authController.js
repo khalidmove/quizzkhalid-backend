@@ -1,4 +1,5 @@
 const User = require('@models/User');
+const Device = require('@models/Device');
 const Verification = require('@models/Verification');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -68,7 +69,11 @@ module.exports = {
      
       user.token=token
       await user.save()
-
+      await Device.updateOne(
+        { device_token: req.body.device_token },
+        { $set: { player_id: req.body.player_id, user: user._id } },
+        { upsert: true }
+      );
       response.success(res, {
         message: 'Login successful',
         token,
@@ -163,6 +168,39 @@ module.exports = {
       await user.save();
       //mailNotification.passwordChange({ email: user.email });
       return response.success(res, { message: "Password changed! Login now." });
+    } catch (error) {
+      return response.error(res, error);
+    }
+  },
+  checkPassword: async (req, res) => {
+    try {
+      const password = req.body.currentPassword;
+      
+      let user = await User.findById(req.user.id);
+      if (!user) {
+        return response.forbidden(res, { message: "unAuthorize" });
+      }
+      const isMatch = await user.isPasswordMatch(password);
+    if (!isMatch) {
+      return response.forbidden(res, { message: "Incorrect password" });
+    }
+      return response.success(res, { message: "Password is correct" });
+    } catch (error) {
+      return response.error(res, error);
+    }
+  },
+  changePasswordFromAccount: async (req, res) => {
+    try {
+      const password = req.body.password;
+      
+      let user = await User.findById(req.user.id);
+      if (!user) {
+        return response.forbidden(res, { message: "unAuthorize" });
+      }
+      user.password = user.encryptPassword(password);
+      await user.save();
+      //mailNotification.passwordChange({ email: user.email });
+      return response.success(res, { message: "Password changed!" });
     } catch (error) {
       return response.error(res, error);
     }

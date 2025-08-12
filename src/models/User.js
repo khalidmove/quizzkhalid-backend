@@ -71,7 +71,7 @@ const userSchema = new mongoose.Schema(
 );
 
 userSchema.methods.isPasswordMatch = async function (password) {
-  return password === this.password;
+  return await bcrypt.compare(password, this.password);
 };
 
 userSchema.methods.encryptPassword = (password) => {

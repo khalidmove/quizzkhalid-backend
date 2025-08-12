@@ -3,10 +3,12 @@ const Quizz = require('@models/Quizz');
 const Questions = require('@models/Questions');
 const TimeSlot = require('@models/timeSlot');
 const mongoose = require("mongoose");
+const { scheduleNotifyToAll } = require('@services/notification');
+const moment = require("moment");
 // const TimeSlot = mongoose.model("TimeSlot");
 
 // Cron job that runs at 7 PM every day (0 19 * * *)
-const dailyQuizupdate = cron.schedule('32 08 * * *', async () => {
+const dailyQuizupdate = cron.schedule('55 10 * * *', async () => {
   try {
   console.log('Running daily option count reset at 7 PM...');
 
@@ -27,7 +29,7 @@ const dailyQuizupdate = cron.schedule('32 08 * * *', async () => {
     return;
   }
 
-  // ✅ Track all used question IDs globally
+  // Track all used question IDs globally
   const alreadyUsedQuestionIds = new Set();
 
   for (let i = 0; i < timeSlots.length; i++) {
@@ -43,7 +45,7 @@ const dailyQuizupdate = cron.schedule('32 08 * * *', async () => {
     const backupQuestions = [];
     const maxBackupCount = 10;
 
-    // ✅ Loop through levels (from last to first)
+    // Loop through levels (from last to first)
     for (let j = levelTypes.length - 1; j >= 0 && backupQuestions.length < maxBackupCount; j--) {
       const level = levelTypes[j];
       const remaining = maxBackupCount - backupQuestions.length;
@@ -66,7 +68,7 @@ const dailyQuizupdate = cron.schedule('32 08 * * *', async () => {
       questions.forEach(q => alreadyUsedQuestionIds.add(q._id.toString()));
     }
 
-    // ✅ Add backup question group only once per quiz
+    // Add backup question group only once per quiz
     if (backupQuestions.length > 0) {
       quiz.questions.push({
         level: backupKey,
@@ -75,10 +77,22 @@ const dailyQuizupdate = cron.schedule('32 08 * * *', async () => {
     }
 
     await quiz.save();
-    console.log(`✅ Scheduled quiz ${quiz._id} for time slot ${slot.startTime}`);
+    console.log(`Scheduled quiz ${quiz._id} for time slot ${slot.startTime}`);
+
+    const fullStartDateTime = moment(
+        `${moment().format('YYYY-MM-DD')} ${slot.startTime}`,
+        'YYYY-MM-DD h:mm A',
+      );
+
+      const finalDateTime = fullStartDateTime.subtract(10, 'minutes');
+      await scheduleNotifyToAll(
+          "Quiz About to start",
+          `A Quiz is about to start in 10 minutes. Please be ready.`,
+          finalDateTime
+        );
   }
 
-  console.log('✅ All quizzes scheduled successfully.');
+  console.log('All quizzes scheduled successfully.');
 
 } catch (error) {
   console.error('❌ Error in quiz scheduler:', error);

@@ -5,6 +5,8 @@ const {
     sendOTPForforgetpass,
     verifyOTP,
     changePassword,
+    changePasswordFromAccount,
+    checkPassword,
     getprofile,
     updateprofile,
     fileUpload
@@ -18,6 +20,8 @@ router.post('/register', register);
 router.post("/sendOTPForforgetpass", sendOTPForforgetpass);
 router.post("/verifyOTP", verifyOTP);
 router.post("/changePassword", changePassword);
+router.post("/changePasswordFromAccount",authMiddleware(["user", "admin"]), changePasswordFromAccount);
+router.post("/checkPassword",authMiddleware(["user", "admin"]), checkPassword);
 router.get("/profile", authMiddleware(["user", "admin"]), getprofile);
 router.post("/updateprofile", authMiddleware(["user", "admin"]), updateprofile);
 router.post("/fileupload", upload.single("file"), fileUpload);
