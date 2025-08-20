@@ -105,7 +105,7 @@ module.exports = {
       const { status } = req.body;
       const timeSlot = await TimeSlot.findByIdAndUpdate(
         id,
-        { status },
+        req.body,
         { new: true }
       );
       if (!timeSlot) {

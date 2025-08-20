@@ -3,18 +3,10 @@
 const mongoose = require("mongoose");
 const notificationSchema = new mongoose.Schema(
   {
-    title: {
-      type: String,
+    notification: {
+      type: "string",
     },
-    description: {
-      type: String,
-    },
-    for: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-      },
-    ],
+    users: [{ type: mongoose.Types.ObjectId, ref: "User" }],
   },
   {
     timestamps: true,
@@ -30,4 +22,4 @@ notificationSchema.set("toJSON", {
   },
 });
 
-module.exports = mongoose.model("notification", notificationSchema);
+module.exports = mongoose.model("Notification", notificationSchema);

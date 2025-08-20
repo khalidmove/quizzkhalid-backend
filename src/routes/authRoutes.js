@@ -9,7 +9,8 @@ const {
     checkPassword,
     getprofile,
     updateprofile,
-    fileUpload
+    fileUpload,
+    getUser
 } = require('@controllers/authController');
 const authMiddleware = require('@middlewares/authMiddleware');
 const { upload } = require("@services/fileUpload");
@@ -20,10 +21,11 @@ router.post('/register', register);
 router.post("/sendOTPForforgetpass", sendOTPForforgetpass);
 router.post("/verifyOTP", verifyOTP);
 router.post("/changePassword", changePassword);
-router.post("/changePasswordFromAccount",authMiddleware(["user", "admin"]), changePasswordFromAccount);
-router.post("/checkPassword",authMiddleware(["user", "admin"]), checkPassword);
+router.post("/changePasswordFromAccount", authMiddleware(["user", "admin"]), changePasswordFromAccount);
+router.post("/checkPassword", authMiddleware(["user", "admin"]), checkPassword);
 router.get("/profile", authMiddleware(["user", "admin"]), getprofile);
 router.post("/updateprofile", authMiddleware(["user", "admin"]), updateprofile);
 router.post("/fileupload", upload.single("file"), fileUpload);
+router.get("/getUser", authMiddleware(["user", "admin"]), getUser);
 
 module.exports = router;

@@ -66,8 +66,8 @@ module.exports = {
       }
 
       const token = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET);
-     
-      user.token=token
+
+      user.token = token
       await user.save()
       await Device.updateOne(
         { device_token: req.body.device_token },
@@ -175,15 +175,15 @@ module.exports = {
   checkPassword: async (req, res) => {
     try {
       const password = req.body.currentPassword;
-      
+
       let user = await User.findById(req.user.id);
       if (!user) {
         return response.forbidden(res, { message: "unAuthorize" });
       }
       const isMatch = await user.isPasswordMatch(password);
-    if (!isMatch) {
-      return response.forbidden(res, { message: "Incorrect password" });
-    }
+      if (!isMatch) {
+        return response.forbidden(res, { message: "Incorrect password" });
+      }
       return response.success(res, { message: "Password is correct" });
     } catch (error) {
       return response.error(res, error);
@@ -192,7 +192,7 @@ module.exports = {
   changePasswordFromAccount: async (req, res) => {
     try {
       const password = req.body.password;
-      
+
       let user = await User.findById(req.user.id);
       if (!user) {
         return response.forbidden(res, { message: "unAuthorize" });
@@ -226,13 +226,26 @@ module.exports = {
   },
   fileUpload: async (req, res) => {
     try {
+      // console.log('AAAAAAA', req?.file);
+      // console.log('BBBBBB', req?.file?.key);
       let key = req.file && req.file.key;
+      console.log('DDDDDD', key)
       return response.success(res, {
         message: "File uploaded.",
         file: `${process.env.ASSET_ROOT}/${key}`,
       });
     } catch (error) {
       return response.error(res, error);
+    }
+  },
+
+  getUser: async (req, res) => {
+    try {
+      let user = await User.find()
+      return response.success(res, user);
+    } catch (err) {
+      console.log(err);
+      response.error(res, err);
     }
   },
 };
