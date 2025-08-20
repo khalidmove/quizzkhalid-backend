@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const response = require("@responses/index");
 const mailNotification = require('@services/mailNotification');
 const userHelper = require("./../helper/user");
+const Notification = require('@models/Notification');
 
 module.exports = {
   register: async (req, res) => {
@@ -233,6 +234,22 @@ module.exports = {
       });
     } catch (error) {
       return response.error(res, error);
+    }
+  },
+    getnotification: async (req, res) => {
+    try {
+      const { page = 1, limit = 20 } = req.query;
+      const ids = req.user.id;
+      console.log("Fetching notifications for user:", ids);
+      const data = await Notification.find({ for: { $in: ids } }).sort({
+        createdAt: -1,
+      }).limit(limit * 1)
+            .skip((page - 1) * limit);
+      console.log("data fetched");
+      return response.success(res, data);
+    } catch (err) {
+      console.log(err);
+      return response.error(res, err);
     }
   },
 };

@@ -30,4 +30,4 @@ notificationSchema.set("toJSON", {
   },
 });
 
-module.exports = mongoose.model("notification", notificationSchema);
+module.exports = mongoose.model("Notification", notificationSchema);
