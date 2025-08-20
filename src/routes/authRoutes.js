@@ -10,7 +10,8 @@ const {
     getprofile,
     updateprofile,
     fileUpload,
-    getUser
+    getUser,
+    getnotification
 } = require('@controllers/authController');
 const authMiddleware = require('@middlewares/authMiddleware');
 const { upload } = require("@services/fileUpload");
@@ -27,5 +28,6 @@ router.get("/profile", authMiddleware(["user", "admin"]), getprofile);
 router.post("/updateprofile", authMiddleware(["user", "admin"]), updateprofile);
 router.post("/fileupload", upload.single("file"), fileUpload);
 router.get("/getUser", authMiddleware(["user", "admin"]), getUser);
+router.get("/getnotification", authMiddleware(["user", "admin"]), getnotification);
 
 module.exports = router;
