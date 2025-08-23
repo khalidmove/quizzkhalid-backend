@@ -20,7 +20,7 @@ const configuration = OneSignal.createConfiguration({
 });
 const client = new OneSignal.DefaultApi(configuration);
 
-async function sendNotification(content, player_ids, title) {
+async function sendNotification(content, player_ids, title,schtime) {
   try {
     const notification = new OneSignal.Notification();
     notification.app_id = ONESIGNAL_APP_ID;
@@ -32,6 +32,9 @@ async function sendNotification(content, player_ids, title) {
       notification.headings = {
         en: title,
       };
+    }
+    if (schtime) {
+      notification.send_after = schtime;
     }
     notification.name = "Quiz App";
     return await client.createNotification(notification);
