@@ -15,6 +15,10 @@ const settingSchema = new mongoose.Schema(
       type: Number,
       default: 10,
     },
+    quiztime: {
+      type: Number,
+      default: 15,
+    },
   },
   {
     timestamps: true,

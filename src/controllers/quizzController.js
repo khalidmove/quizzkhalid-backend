@@ -126,7 +126,7 @@ await Quizz.updateOne(
       'users.$.correctAnswers': correctAnswers,
       'users.$.wrongAnswers': wrongAnswers,
       'users.$.enteredBackup': enteredBackup,
-      'users.$.totalTimeTaken': enteredBackup ? totalTimeTaken : 0,
+      'users.$.totalTimeTaken': totalTimeTaken ,
       'users.$.completedBackup': completedBackup,
       'users.$.leftAtQuestion': leftAtQuestion,
     },
@@ -138,24 +138,19 @@ await Quizz.updateOne(
           message: 'User does not exist in this quiz',
         });
       }
-      // Update user stats
-      // const userEntry = quiz.users.find(
-      //   (u) => u.user.toString() === userId.toString(),
-      // );
-      // if (userEntry) {
-      //   userEntry.isAvailable = false;
-      //   userEntry.answeredCount = answeredCount;
-      //   userEntry.correctAnswers = correctAnswers;
-      //   userEntry.wrongAnswers = wrongAnswers;
-      //   userEntry.enteredBackup = enteredBackup;
-      //   userEntry.totalTimeTaken = enteredBackup ? totalTimeTaken : 0;
-      //   userEntry.completedBackup = completedBackup;
-      //   userEntry.leftAtQuestion = leftAtQuestion;
-      // }
+const updatedQuiz = await Quizz.findById(quizId);
+  const activeUsers = updatedQuiz.users.filter((u) => u.isAvailable);
+      if (activeUsers.length <=1 &&!enteredBackup) {
+        const backupqus = updatedQuiz.questions.find(
+          (f) => f.level === 'Backup Questions',
+        );
+         const backupQuestions = backupqus ? backupqus.que : [];
+        await Questions.updateMany(
+    { _id: { $in: backupQuestions.map(q => q._id) } },
+    { $set: { status: "fresh" } }
+  );
+      }
 
-      // await quiz.save();
-  // const activeUsers = quiz.users.filter((u) => u.isAvailable);
-  //     if (activeUsers.length > 0) {
         return response.success(res, {
           message:
             'Your quiz is submitted. Ranking will be available once all users finish.',

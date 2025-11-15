@@ -8,7 +8,7 @@ const moment = require("moment");
 // const TimeSlot = mongoose.model("TimeSlot");
 
 // Cron job that runs at 7 PM every day (0 19 * * *)
-const dailyQuizupdate = cron.schedule('55 10 * * *', async () => {
+const dailyQuizupdate = cron.schedule('02 11 * * *', async () => {
   try {
   console.log('Running daily option count reset at 7 PM...');
 
@@ -70,6 +70,10 @@ const dailyQuizupdate = cron.schedule('55 10 * * *', async () => {
 
     // Add backup question group only once per quiz
     if (backupQuestions.length > 0) {
+      await Questions.updateMany(
+    { _id: { $in: backupQuestions.map(q => q._id) } },
+    { $set: { status: "used" } }
+  );
       quiz.questions.push({
         level: backupKey,
         que: backupQuestions,

@@ -82,6 +82,7 @@ module.exports = {
           email: user.email,
           name: user.name,
           role: user.role,
+          avater: user.avater,
         },
       });
     } catch (error) {
