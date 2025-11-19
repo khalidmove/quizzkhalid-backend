@@ -6,5 +6,6 @@ const router = express.Router();
 router.post('/create', notification.create);
 router.get("/getNoti", notification.getNoti);
 router.get("/getnotification", authMiddleware(["user", "admin"]), notification.getnotification);
+router.get("/getnotificationForAdmin", authMiddleware(["admin"]), notification.getnotificationForAdmin);
 
 module.exports = router;

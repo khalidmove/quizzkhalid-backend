@@ -11,9 +11,9 @@ module.exports = {
     try {
       let payload = req.body;
       console.log(payload);
-      // payload.title="Broadcast"
-      // let notif = new Notification(payload);
-      // let t = await notif.save();
+      payload.title="Broadcast"
+      let notif = new Notification(payload);
+       await notif.save();
       await notify(payload.users,"Broadcast",payload.notification);
       return response.success(res, { message: "Notification sent" });
     } catch (err) {
@@ -43,6 +43,34 @@ module.exports = {
         .skip((page - 1) * limit);
       console.log("data fetched");
       return response.success(res, data);
+    } catch (err) {
+      console.log(err);
+      return response.error(res, err);
+    }
+  },
+  getnotificationForAdmin: async (req, res) => {
+    try {
+      const { page = 1, limit = 20 } = req.query;
+      // const ids = req.user.id;
+      // console.log("Fetching notifications for user:", ids);
+      const data = await Notification.find({ title: "Broadcast" }).sort({
+        createdAt: -1,
+      }).limit(limit * 1)
+        .skip((page - 1) * limit);
+        const totalNotific = await Notification.countDocuments({ title: "Broadcast" }); // Get the total number of Notification
+      const totalPages = Math.ceil(totalNotific / limit); 
+      // return response.success(res, data);
+      return res.json({
+      success: true,
+      pagination: {
+        totalItems: totalNotific,
+        totalPages: totalPages,
+        currentPage: Number(page),
+        itemsPerPage: Number(limit),
+      },
+      data,
+    });
+
     } catch (err) {
       console.log(err);
       return response.error(res, err);

@@ -719,7 +719,135 @@ console.log('quiz',quiz)
   return res.status(500).json({ success: false, message: "Server error" });
 }
 
-}
+},
+getAllRankedQuizzes: async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const pipeline = [
+      {
+        $match: {
+          "users.rank": { $ne: null }
+        }
+      },
+
+      // sort first to reduce load
+      {
+        $sort: {
+          scheduledDate: -1,
+          scheduledTime: -1
+        }
+      },
+
+      // pagination early in pipeline
+      { $skip: skip },
+      { $limit: limit },
+
+      // extract top 3 ranked users only
+      {
+        $project: {
+          name: 1,
+          scheduledDate: 1,
+          scheduledTime: 1,
+          users: {
+            $slice: [
+              {
+                $filter: {
+                  input: "$users",
+                  as: "u",
+                  cond: { $lte: ["$$u.rank", 3] }
+                }
+              },
+              3
+            ]
+          }
+        }
+      },
+
+      // join user data for only those 3 users
+      {
+        $lookup: {
+          from: "users",
+    let: { uid: "$users.user" },
+    pipeline: [
+      {
+        $match: {
+          $expr: { $in: ["$_id", "$$uid"] }
+        }
+      },
+      {
+        $project: {
+          password: 0,
+          otp: 0,
+          __v: 0
+        }
+      }
+    ],
+    as: "userData"
+        }
+      },
+
+      // merge user info into user array
+      {
+        $addFields: {
+          users: {
+            $map: {
+              input: "$users",
+              as: "u",
+              in: {
+                _id: "$$u.user",
+                rank: "$$u.rank",
+                correctAnswers: "$$u.correctAnswers",
+                wrongAnswers: "$$u.wrongAnswers",
+                answeredCount: "$$u.answeredCount",
+                totalTimeTaken: "$$u.totalTimeTaken",
+                user: {
+                  $first: {
+                    $filter: {
+                      input: "$userData",
+                      as: "info",
+                      cond: { $eq: ["$$info._id", "$$u.user"] }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+
+      {
+        $project: {
+          userData: 0
+        }
+      }
+    ];
+
+    const data = await Quizz.aggregate(pipeline);
+
+    // count separately for pagination
+    const total = await Quizz.countDocuments({ "users.rank": { $ne: null } });
+
+    return res.json({
+      success: true,
+      pagination: {
+        totalItems: total,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page,
+        itemsPerPage: limit,
+      },
+      data,
+    });
+
+  } catch (err) {
+    console.error("Error in optimized API:", err);
+    return res
+      .status(500)
+      .json({ success: false, message: "Server error" });
+  }
+},
 //  getQuizWinners : async (req, res) => {
 //   try {
 //     const now = new Date();

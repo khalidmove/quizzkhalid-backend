@@ -12,6 +12,7 @@ router.get("/getLeaderboard",authMiddleware(["user", "admin"]), quizz.getLeaderb
 router.get("/getTopSecondSlotWinners",authMiddleware(["user", "admin"]), quizz.getTopSecondSlotWinners);
 router.post("/givevote",authMiddleware(["user", "admin"]), quizz.givevote);
 router.get("/getvotedata",authMiddleware(["user", "admin"]), quizz.getvotedata);
+router.get("/getAllRankedQuizzes", quizz.getAllRankedQuizzes);
 router.get("/", quizz.get);
 router.get("/:id", quizz.getbyId);
 router.post("/update", quizz.update);
