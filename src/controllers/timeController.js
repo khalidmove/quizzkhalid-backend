@@ -2,6 +2,7 @@
 const mongoose = require("mongoose");
 const TimeSlot = mongoose.model("TimeSlot");
 const response = require("../responses");
+const Subscription = require("../models/subscription");
 
 function timeToMinutes(t) {
   const [time, meridian] = t.split(" ");
@@ -70,6 +71,10 @@ module.exports = {
 
       if (req.query.type !== "admin") {
         cond.status = true;
+        const hasActiveSubscription = await Subscription.exists({status:"Active"})
+        if (!hasActiveSubscription) {
+          cond.premium={$ne:true}
+        }
       }
       const timeSlots = await TimeSlot.find(cond);
       return response.success(res, {
@@ -119,5 +124,25 @@ module.exports = {
       console.error("Error updating time slot:", error);
       return response.error(res, { message: "Error updating time slot" });
     }
-  }
+  },
+
+  setPremiumSlot: async (req, res) => {
+    try {
+      const { id } = req.params;
+      await TimeSlot.updateMany(
+    {},
+    { $set: { premium: false } }
+  );
+
+       await TimeSlot.findByIdAndUpdate(
+        id,
+        {premium:true},
+      );
+      return response.success(res, {
+        message: "Time slot updated successfully",});
+    } catch (error) {
+      console.error("Error updating time slot:", error);
+      return response.error(res, { message: "Error updating time slot" });
+    }
+  },
 };

@@ -7,6 +7,7 @@ const subscriptionRoutes = require("@routes/subscriptionRoutes");
 const settingRoutes = require("@routes/settingRoutes");
 const notificationRoutes = require("@routes/notificationRoutes");
 const contentRoutes = require("@routes/contentRoutes");
+const stripeRoutes = require("@routes/stripeRoutes");
 
 module.exports = (app) => {
   app.use('/api/auth', authRoutes);
@@ -18,5 +19,6 @@ module.exports = (app) => {
   app.use('/api/setting', settingRoutes);
   app.use('/api/notification', notificationRoutes);
   app.use('/api/content', contentRoutes);
+  app.use('/api/stripe', stripeRoutes);
 };
 

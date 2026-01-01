@@ -15,7 +15,11 @@ const timeSlotSchema = new mongoose.Schema(
     status: {
       type: Boolean,
       default: true,
-    }
+    },
+    premium: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );
