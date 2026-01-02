@@ -12,8 +12,8 @@ module.exports = {
       let payload = req.body;
       console.log(payload);
       payload.title="Broadcast"
-      let notif = new Notification(payload);
-       await notif.save();
+      // let notif = new Notification(payload);
+      //  await notif.save();
       await notify(payload.users,"Broadcast",payload.notification);
       return response.success(res, { message: "Notification sent" });
     } catch (err) {
