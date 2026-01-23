@@ -24,6 +24,9 @@ const subscriptionSchema = new mongoose.Schema(
       enum: ["Active", "Inactive"],
       default: "Active",
     },
+    order: {
+      type: Number,
+    },
   },
   {
     timestamps: true,

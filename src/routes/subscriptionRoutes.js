@@ -15,6 +15,8 @@ router.get('/getSubscription',authMiddleware(['user', 'admin']),subscription.get
 );
 router.patch('/changestatus/:id',authMiddleware(['user', 'admin']),subscription.changestatus,
 );
+router.patch('/updateOrder',authMiddleware(['user', 'admin']),subscription.changeorder,
+);
 
 router.post('/changeAllStatus',authMiddleware(['user', 'admin']),subscription.changeAllStatus,
 );

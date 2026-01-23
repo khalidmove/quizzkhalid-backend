@@ -44,7 +44,7 @@ module.exports = {
     try {
       const data = await Subscription
         .find({ status: "Active" })
-        .sort({ period: 1 });
+        .sort({ order: 1 });
       return response.success(res, data);
     } catch (error) {
       return response.error(res, error);
@@ -53,7 +53,7 @@ module.exports = {
 
   getFAQ: async (req, res) => {
     try {
-      const data = await Subscription.find().sort({ period: 1 });
+      const data = await Subscription.find().sort({ order: 1 });
       return response.success(res, data);
     } catch (error) {
       return response.error(res, error);
@@ -68,6 +68,27 @@ module.exports = {
       await Subscription.findByIdAndUpdate(id, { $set: { status } });
 
       return response.success(res, { message: "Subscription updated" });
+    } catch (error) {
+      console.log(error);
+      return response.error(res, error);
+    }
+  },
+
+  changeorder: async (req, res) => {
+    try {
+      const payload = req.body;
+
+     const bulkOps = payload.map(item => ({
+    updateOne: {
+      filter: { _id: item.id },
+      update: { $set: { order: item.order } }
+    }
+  }));
+
+  await Subscription.bulkWrite(bulkOps);
+
+
+      return response.success(res, { message: "Order updated" });
     } catch (error) {
       console.log(error);
       return response.error(res, error);
