@@ -69,14 +69,14 @@ module.exports = {
     try {
       const cond = {};
 
-      if (req.query.type !== "admin") {
-        cond.status = true;
-        const hasActiveSubscription = await Subscription.exists({status:"Active"})
-        if (!hasActiveSubscription) {
-          cond.premium={$ne:true}
-        }
-      }
-      const timeSlots = await TimeSlot.find(cond);
+      // if (req.query.type !== "admin") {
+      //   cond.status = true;
+      //   const hasActiveSubscription = await Subscription.exists({status:"Active"})
+      //   if (!hasActiveSubscription) {
+      //     cond.premium={$ne:true}
+      //   }
+      // }
+      const timeSlots = await TimeSlot.find();
       return response.success(res, {
         message: "Time slots fetched successfully",
         timeSlots,
