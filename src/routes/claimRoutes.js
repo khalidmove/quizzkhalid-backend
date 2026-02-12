@@ -6,5 +6,6 @@ const router = express.Router();
 router.get('/getClaimReward', authMiddleware(["user", "admin"]), claim.getClaimReward);
 router.get("/getPendingClaimReward", authMiddleware(["user", "admin"]), claim.getPendingClaimReward);
 router.get("/getClaimRewardByUser/:id", authMiddleware(["user", "admin"]), claim.getClaimRewardByUser);
+router.post("/updateClaimReward/:id", authMiddleware(["user", "admin"]), claim.updateClaimReward);
 
 module.exports = router;
