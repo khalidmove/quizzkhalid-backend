@@ -8,6 +8,8 @@ const settingRoutes = require("@routes/settingRoutes");
 const notificationRoutes = require("@routes/notificationRoutes");
 const contentRoutes = require("@routes/contentRoutes");
 const stripeRoutes = require("@routes/stripeRoutes");
+const adminRoutes = require("@routes/adminRoutes");
+const claimRoutes = require("@routes/claimRoutes");
 
 module.exports = (app) => {
   app.use('/api/auth', authRoutes);
@@ -20,5 +22,7 @@ module.exports = (app) => {
   app.use('/api/notification', notificationRoutes);
   app.use('/api/content', contentRoutes);
   app.use('/api/stripe', stripeRoutes);
+  app.use('/api/admindashboard', adminRoutes);
+  app.use('/api/claim', claimRoutes);
 };
 

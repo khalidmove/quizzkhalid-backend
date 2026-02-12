@@ -6,6 +6,32 @@ const jwt = require('jsonwebtoken');
 const response = require("@responses/index");
 const mailNotification = require('@services/mailNotification');
 const userHelper = require("./../helper/user");
+const claimReward = require('@models/claimReward');
+const moment = require("moment");
+
+function getTimeLeft(expiresAt) {
+  const now = moment();
+  const expiry = moment(expiresAt);
+
+  if (expiry.isSameOrBefore(now)) {
+    return {
+      expired: true,
+      hours: 0,
+      minutes: 0,
+      seconds: 0
+    };
+  }
+
+  const duration = moment.duration(expiry.diff(now));
+
+  return {
+    expired: false,
+    hours: Math.floor(duration.asHours()),
+    minutes: duration.minutes(),
+    seconds: duration.seconds()
+  };
+}
+
 
 module.exports = {
   register: async (req, res) => {
@@ -213,6 +239,104 @@ module.exports = {
       return response.success(res, user);
     } catch (error) {
       return response.error(res, error);
+    }
+  },
+  getpoints: async (req, res) => {
+  try {
+  const userId = req.user.id;
+  const now = new Date();
+  const onlyPoints = req.query.onlyPoints === 'true';
+
+  let user = await User.findById(userId).lean();
+
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: 'User not found'
+    });
+  }
+
+  // CLEAN EXPIRED REWARDS (DEFAULT)
+
+  if (!onlyPoints && user.rewards?.length) {
+    const expiredRewards = user.rewards.filter(
+      r => new Date(r.expiresAt) <= now
+    );
+
+    if (expiredRewards.length) {
+      const expiredPoints = expiredRewards.reduce(
+        (sum, r) => sum + r.points,
+        0
+      );
+
+      await User.updateOne(
+        { _id: userId },
+        {
+          $inc: { points: -expiredPoints },
+          $pull: { rewards: { expiresAt: { $lte: now } } }
+        }
+      );
+
+      user = await User.findById(userId).lean();
+    }
+  }
+
+  // BUILD RESPONSE
+
+  const rewards = onlyPoints
+    ? []
+    : (user.rewards || []).map(r => ({
+        points: r.points,
+        expiresAt: r.expiresAt,
+        createdAt: r.createdAt,
+        timeLeft: getTimeLeft(r.expiresAt)
+      }));
+
+  return res.json({
+    success: true,
+    totalPoints: user.points,
+    rewards
+  });
+
+} catch (err) {
+  console.error(err);
+  return res.status(500).json({
+    success: false,
+    message: 'Something went wrong'
+  });
+}
+
+  },
+
+  claimReward: async (req, res) => {
+    try {
+      const userId = req.user.id;
+
+      const user = await User.findById(userId);
+
+      if (!user) {
+        return res.status(404).json({ success: false, message: 'User not found' });
+      }
+
+      // Create claim request
+      const claim = new claimReward({
+        req_user: userId,
+        points: user.points,
+        status: 'Pending'
+      });
+
+      await claim.save();
+await User.updateOne(
+    { _id: userId },
+    {
+      $set: { points: 0 },
+      $pull: { rewards: {} } // remove all
+    }
+  );
+      return res.json({ success: true, message: 'Reward claim request submitted successfully' });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ success: false, message: 'Something went wrong' });
     }
   },
 

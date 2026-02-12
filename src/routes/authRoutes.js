@@ -8,6 +8,8 @@ const {
     changePasswordFromAccount,
     checkPassword,
     getprofile,
+    getpoints,
+    claimReward,
     updateprofile,
     fileUpload,
     getUser,
@@ -24,6 +26,8 @@ router.post("/changePassword", changePassword);
 router.post("/changePasswordFromAccount", authMiddleware(["user", "admin"]), changePasswordFromAccount);
 router.post("/checkPassword", authMiddleware(["user", "admin"]), checkPassword);
 router.get("/profile", authMiddleware(["user", "admin"]), getprofile);
+router.get("/getpoints", authMiddleware(["user", "admin"]), getpoints);
+router.get("/claimReward", authMiddleware(["user", "admin"]), claimReward);
 router.post("/updateprofile", authMiddleware(["user", "admin"]), updateprofile);
 router.post("/fileupload", upload.single("file"), fileUpload);
 router.get("/getUser", authMiddleware(["user", "admin"]), getUser);

@@ -1,6 +1,12 @@
 const mongoose = require('mongoose');
 const bcrypt = require("bcryptjs");
 
+const RewardSchema = new mongoose.Schema({
+  points: { type: Number, },
+  expiresAt: { type: Date, },
+  createdAt: { type: Date, default: Date.now }
+});
+
 const userSchema = new mongoose.Schema(
   {
     name: {
@@ -61,6 +67,11 @@ const userSchema = new mongoose.Schema(
     subscriptiondata:{
       type:Object
     },
+    points:{
+      type:Number,
+      default:0
+    },
+    rewards: [RewardSchema] ,
     subscription: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "subscription",

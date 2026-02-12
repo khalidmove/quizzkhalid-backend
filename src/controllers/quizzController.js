@@ -4,6 +4,8 @@ const response = require('../responses');
 const Quizz = require('@models/Quizz');
 const TimeSlot = mongoose.model("TimeSlot");
 const moment = require("moment");
+const User = require('@models/User');
+const { notify } = require('@services/notification');
 
 module.exports = {
   create: async (req, res) => {
@@ -417,73 +419,153 @@ const updatedQuiz = await Quizz.findById(quizId);
     }
   },
   getuserquizhistory: async (req, res) => {
+  try {
+  const userId = req.user.id;
 
-      try {
-    const userId = req.user.id;
-    const page = parseInt(req.query.page) || 1;
-const limit = parseInt(req.query.limit) || 10;
-const skip = (page - 1) * limit;
+  const page = Math.max(parseInt(req.query.page) || 1, 1);
+  const limit = Math.max(parseInt(req.query.limit) || 10, 1);
+  const skip = (page - 1) * limit;
 
-const quizzes = await Quizz.find({ 'users.user': userId })
-  .select('users name scheduledDate scheduledTime questions createdAt')
-  .sort({ createdAt: -1 }) // latest first
-  .skip(skip)
-  .limit(limit)
-  .lean();
+  // TOTAL COUNT (pagination)
+  const total = await Quizz.countDocuments({ "users.user": userId });
 
+  // FETCH QUIZZES
+  const quizzes = await Quizz.find({ "users.user": userId })
+    .select(
+      "users name scheduledDate scheduledTime isRankCalculated createdAt"
+    )
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit)
+    .lean();
 
-    const history = [];
+  if (!quizzes.length) {
+    return response.success(res, {
+      data: [],
+      page,
+      limit,
+      total,
+      totalPages: 0
+    });
+  }
 
-    for (const quiz of quizzes) {
-      const userIndex = quiz.users.findIndex(u => u.user.toString() === userId);
-      if (userIndex === -1) continue;
+  // FETCH TIMESLOTS ONCE
+  const timeSlots = await TimeSlot.find({ status: true }).lean();
+  const timeSlotMap = new Map(
+    timeSlots.map(slot => [slot.startTime, slot])
+  );
 
-      // Step 2: Check if rank is already calculated
-      const isRankMissing = quiz.users.some(u => u.rank == null);
-      const allLeft = quiz.users.every(u => u.isAvailable === false);
+  const history = [];
 
-      if (isRankMissing && allLeft) {
-        // Step 3: Calculate rank by answeredCount & totalTimeTaken
-        const ranked = [...quiz.users].sort((a, b) => {
-          if (a.answeredCount !== b.answeredCount) {
-            return b.answeredCount - a.answeredCount;
-          }
-          return a.totalTimeTaken - b.totalTimeTaken;
-        });
+  for (const quiz of quizzes) {
+    const userIndex = quiz.users.findIndex(
+      u => u.user.toString() === userId
+    );
 
-        // Step 4: Assign rank and update
-        ranked.forEach((user, index) => {
-          user.rank = index + 1;
-        });
+    if (userIndex === -1) continue;
 
-        await Quizz.updateOne(
-          { _id: quiz._id },
-          { $set: { users: ranked } }
-        );
+    const allLeft = quiz.users.every(u => u.isAvailable === false);
 
-        quiz.users = ranked; // update locally too
-      }
+    //RANK CALCULATION (OLD LOGIC)
 
-      // Step 5: Push current user's data
-      const userData = quiz.users[userIndex];
-
-      history.push({
-        quizId: quiz._id,
-        name: quiz.name,
-        scheduledDate: quiz.scheduledDate,
-        scheduledTime: quiz.scheduledTime,
-        answeredCount: userData.answeredCount,
-        totalTimeTaken: userData.totalTimeTaken,
-        correctAnswers: userData.correctAnswers,
-        wrongAnswers: userData.wrongAnswers,
-        rank: userData.rank ?? null,
+    if (!quiz.isRankCalculated && allLeft) {
+      const rankedUsers = [...quiz.users].sort((a, b) => {
+        if (a.answeredCount !== b.answeredCount) {
+          return b.answeredCount - a.answeredCount;
+        }
+        return a.totalTimeTaken - b.totalTimeTaken;
       });
+
+      rankedUsers.forEach((u, index) => {
+        u.rank = index + 1;
+      });
+
+      await Quizz.updateOne(
+        { _id: quiz._id },
+        {
+          $set: {
+            users: rankedUsers,
+            isRankCalculated: true
+          }
+        }
+      );
+
+      quiz.users = rankedUsers; // keep local sync
     }
-      return response.success(res, history);
-    } catch (err) {
-      console.error(err);
-      return response.error(res, err);
+
+    // WINNER REWARD (NEW FEATURE)
+    const rewardUpdate = await Quizz.findOneAndUpdate(
+      {
+        _id: quiz._id,
+        isRankCalculated: true,
+        "users.rank": 1,
+        "users.rewardGiven": { $ne: true }
+      },
+      {
+        $set: { "users.$.rewardGiven": true }
+      },
+      { new: true }
+    );
+
+    if (rewardUpdate) {
+      const winner = rewardUpdate.users.find(u => u.rank === 1);
+      const timeSlot = timeSlotMap.get(quiz.scheduledTime);
+
+      if (winner && timeSlot) {
+        const rewardPoints = timeSlot.premium ? 250 : 100;
+
+        const expiresAt = moment()
+        .add(24, 'hours')
+        .toDate();
+
+        await User.updateOne(
+          { _id: winner.user },
+          { $inc: { points: rewardPoints } ,
+          $push: {
+      rewards: {
+        points: rewardPoints,
+        expiresAt
+      }
+    }}
+        );
+        await notify(
+          winner.user,
+                  "Congratulations! You've won the quiz!",
+                  `You have been rewarded ${rewardPoints} points for winning the quiz.You have 24 hours to claim your reward.`
+                );
+      }
     }
+
+      // USER HISTORY (OLD RESPONSE)
+    const userData = quiz.users[userIndex];
+
+    history.push({
+      quizId: quiz._id,
+      name: quiz.name,
+      scheduledDate: quiz.scheduledDate,
+      scheduledTime: quiz.scheduledTime,
+      answeredCount: userData.answeredCount || 0,
+      totalTimeTaken: userData.totalTimeTaken || 0,
+      correctAnswers: userData.correctAnswers || 0,
+      wrongAnswers: userData.wrongAnswers || 0,
+      rank: userData.rank ?? null
+    });
+  }
+
+  return response.success(res, {
+    data: history,
+    page,
+    limit,
+    total,
+    totalPages: Math.ceil(total / limit)
+  });
+
+} catch (err) {
+  console.error("Quiz history error:", err);
+  return response.error(res, err.message || "Something went wrong");
+}
+
+
   },
   getuserstats: async (req, res) => {
 try {
@@ -555,81 +637,140 @@ try {
 
  getLeaderboard : async (req, res) => {
  try {
-const now = moment();
-const timeSlots = await TimeSlot.find({ status: true }).sort({ startTime: 1 });
+  const now = moment();
+  const timeSlots = await TimeSlot.find({ status: true }).sort({ startTime: 1 });
 
-const responseData = [];
+  const responseData = [];
 
-const todayStart = moment().startOf('day').toDate();
-const todayEnd = moment().endOf('day').toDate();
+  const todayStart = moment().startOf('day').toDate();
+  const todayEnd = moment().endOf('day').toDate();
 
-const yesterdayStart = moment().subtract(1, 'day').startOf('day').toDate();
-const yesterdayEnd = moment().subtract(1, 'day').endOf('day').toDate();
+  const yesterdayStart = moment().subtract(1, 'day').startOf('day').toDate();
+  const yesterdayEnd = moment().subtract(1, 'day').endOf('day').toDate();
 
-for (let slot of timeSlots) {
-  const [slotHour, slotMinute] = slot.startTime.split(':').map(Number);
-  const todaySlotStart = moment().set({ hour: slotHour, minute: slotMinute, second: 0, millisecond: 0 });
-  const todaySlotEnd = moment(todaySlotStart).add(20, 'minutes');
-
-  let finalQuiz = null;
-
-  if (now.isSameOrAfter(todaySlotEnd)) {
-    finalQuiz = await Quizz.findOne({
-      scheduledDate: { $gte: todayStart, $lt: todayEnd },
-      scheduledTime: slot.startTime,
-    }).populate('users.user', 'name username').lean();
-  }
-
-  if (!finalQuiz || finalQuiz?.users?.some(u => u.rank == null)) {
-    finalQuiz = await Quizz.findOne({
-      scheduledDate: { $gte: yesterdayStart, $lt: yesterdayEnd },
-      scheduledTime: slot.startTime,
-    }).populate('users.user', 'name avatar').lean();
-  }
-
-  console.log('--- Slot:', slot.startTime, '| finalQuiz:', finalQuiz?._id ?? 'null');
-
-  if (!finalQuiz) continue;
-
-  const allLeft = finalQuiz.users.every(u => u.isAvailable === false);
-  const isRankMissing = finalQuiz.users.some(u => u.rank == null);
-
-  if (isRankMissing && allLeft) {
-    const ranked = [...finalQuiz.users].sort((a, b) => {
-      if (a.answeredCount !== b.answeredCount) return b.answeredCount - a.answeredCount;
-      return a.totalTimeTaken - b.totalTimeTaken;
-    }).map((u, i) => ({ ...u, rank: i + 1 }));
-
-    await Quizz.updateOne({ _id: finalQuiz._id }, { $set: { users: ranked } });
-    finalQuiz.users = ranked;
-  }
-
-  const topThree = finalQuiz.users
-    .filter(u => u.rank && u.rank <= 3)
-    .sort((a, b) => a.rank - b.rank)
-    .map(u => ({
-      userId: u.user,
-      rank: u.rank,
-      correctAnswers: u.correctAnswers,
-      wrongAnswers: u.wrongAnswers,
-      answeredCount: u.answeredCount,
-    }));
-
-  if (topThree.length > 0) {
-    responseData.push({
-      slot: slot.startTime,
-      date: moment(finalQuiz.scheduledDate).format('YYYY-MM-DD'),
-      winners: topThree,
+  for (let slot of timeSlots) {
+    const [slotHour, slotMinute] = slot.startTime.split(':').map(Number);
+    const todaySlotStart = moment().set({
+      hour: slotHour,
+      minute: slotMinute,
+      second: 0,
+      millisecond: 0
     });
+    const todaySlotEnd = moment(todaySlotStart).add(20, 'minutes');
+
+    let finalQuiz = null;
+
+    //TODAY SLOT (after 20 mins)
+    if (now.isSameOrAfter(todaySlotEnd)) {
+      finalQuiz = await Quizz.findOne({
+        scheduledDate: { $gte: todayStart, $lt: todayEnd },
+        scheduledTime: slot.startTime
+      }).populate('users.user', 'name username').lean();
+    }
+
+    // FALLBACK TO YESTERDAY
+
+    if (!finalQuiz || finalQuiz.users?.some(u => u.rank == null)) {
+      finalQuiz = await Quizz.findOne({
+        scheduledDate: { $gte: yesterdayStart, $lt: yesterdayEnd },
+        scheduledTime: slot.startTime
+      }).populate('users.user', 'name username avatar').lean();
+    }
+
+    if (!finalQuiz) continue;
+
+    const allLeft = finalQuiz.users.every(u => u.isAvailable === false);
+    const isRankMissing = finalQuiz.users.some(u => u.rank == null);
+
+    // RANK CALCULATION (OLD LOGIC)
+
+    if (isRankMissing && allLeft) {
+      const ranked = [...finalQuiz.users]
+        .sort((a, b) => {
+          if (a.answeredCount !== b.answeredCount) {
+            return b.answeredCount - a.answeredCount;
+          }
+          return a.totalTimeTaken - b.totalTimeTaken;
+        })
+        .map((u, i) => ({ ...u, rank: i + 1 }));
+
+      await Quizz.updateOne(
+        { _id: finalQuiz._id },
+        {
+          $set: {
+            users: ranked,
+            isRankCalculated: true
+          }
+        }
+      );
+
+      finalQuiz.users = ranked;
+    }
+
+    // REWARD DISTRIBUTION (NEW)
+
+    const rewardUpdate = await Quizz.findOneAndUpdate(
+      {
+        _id: finalQuiz._id,
+        isRankCalculated: true,
+        "users.rank": 1,
+        "users.rewardGiven": { $ne: true }
+      },
+      {
+        $set: { "users.$.rewardGiven": true }
+      },
+      { new: true }
+    );
+
+    if (rewardUpdate) {
+      const winner = rewardUpdate.users.find(u => u.rank === 1);
+      if (winner) {
+        const rewardPoints = slot.premium ? 250 : 100;
+
+        await User.updateOne(
+          { _id: winner.user },
+          { $inc: { points: rewardPoints } }
+        );
+        await notify(
+          winner.user,
+                  "Congratulations! You've won the quiz!",
+                  `You have been rewarded ${rewardPoints} points for winning the quiz.You have 24 hours to claim your reward.`
+                );
+      }
+    }
+
+    // TOP 3 RESPONSE (OLD FORMAT)
+    
+    const topThree = finalQuiz.users
+      .filter(u => u.rank && u.rank <= 3)
+      .sort((a, b) => a.rank - b.rank)
+      .map(u => ({
+        userId: u.user,
+        rank: u.rank,
+        correctAnswers: u.correctAnswers,
+        wrongAnswers: u.wrongAnswers,
+        answeredCount: u.answeredCount
+      }));
+
+    if (topThree.length > 0) {
+      responseData.push({
+        slot: slot.startTime,
+        date: moment(finalQuiz.scheduledDate).format('YYYY-MM-DD'),
+        winners: topThree
+      });
+    }
   }
+
+  return res.json({ success: true, data: responseData });
+
+} catch (err) {
+  console.error('Error fetching winners by time slot:', err);
+  return res.status(500).json({
+    success: false,
+    message: 'Internal server error'
+  });
 }
 
-return res.json({ success: true, data: responseData });
-
-  } catch (err) {
-    console.error('Error fetching winners by time slot:', err);
-    return res.status(500).json({ success: false, message: 'Internal server error' });
-  }
 },
 getTopSecondSlotWinners : async (req, res) => {
   try {

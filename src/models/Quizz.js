@@ -40,6 +40,7 @@ const QuizzModal = new mongoose.Schema(
         isAvailable: {
           type: Boolean,
         },
+        rewardGiven: { type: Boolean, default: false },
         answeredCount: { type: Number, default: 0 },
         totalTimeTaken: { type: Number, default: 0 },
         rank: { type: Number, default: null },
@@ -50,7 +51,7 @@ const QuizzModal = new mongoose.Schema(
         completedBackup: { type: Boolean, default: false },
       },
     ],
-
+    isRankCalculated: { type: Boolean, default: false },
     name: {
       type: String,
     },
