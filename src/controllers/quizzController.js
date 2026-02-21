@@ -661,12 +661,12 @@ try {
     let finalQuiz = null;
 
     //TODAY SLOT (after 20 mins)
-    if (now.isSameOrAfter(todaySlotEnd)) {
+    // if (now.isSameOrAfter(todaySlotEnd)) {
       finalQuiz = await Quizz.findOne({
         scheduledDate: { $gte: todayStart, $lt: todayEnd },
         scheduledTime: slot.startTime
       }).populate('users.user', 'name username').lean();
-    }
+    // }
 
     // FALLBACK TO YESTERDAY
 
@@ -797,7 +797,7 @@ getTopSecondSlotWinners : async (req, res) => {
     );
 
     // STEP 1 → Check today result (only if 20 min passed)
-    if (now.isAfter(todaySlotMoment.clone().add(20, "minutes"))) {
+    // if (now.isAfter(todaySlotMoment.clone().add(20, "minutes"))) {
 
       const todayQuiz = await Quizz.findOne({
         scheduledDate: {
@@ -805,6 +805,7 @@ getTopSecondSlotWinners : async (req, res) => {
           $lt: moment().endOf("day").toDate(),
         },
         scheduledTime: slot.startTime,
+        isRankCalculated: true,
         "users.rank": 1
       })
       .populate("users.user", "name avatar")
@@ -828,7 +829,7 @@ getTopSecondSlotWinners : async (req, res) => {
           continue; // Move to next slot
         }
       }
-    }
+    // }
 
     // STEP 2 → If today's winner not available → check past days
     let dayOffset = 1;

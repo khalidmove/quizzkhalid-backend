@@ -9,6 +9,7 @@ const notificationRoutes = require("@routes/notificationRoutes");
 const contentRoutes = require("@routes/contentRoutes");
 const stripeRoutes = require("@routes/stripeRoutes");
 const adminRoutes = require("@routes/adminRoutes");
+const ReportController = require("@routes/ReportsRoutes");
 const claimRoutes = require("@routes/claimRoutes");
 
 module.exports = (app) => {
@@ -23,6 +24,7 @@ module.exports = (app) => {
   app.use('/api/content', contentRoutes);
   app.use('/api/stripe', stripeRoutes);
   app.use('/api/admindashboard', adminRoutes);
+  app.use('/api/reports', ReportController);
   app.use('/api/claim', claimRoutes);
 };
 
