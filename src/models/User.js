@@ -74,7 +74,7 @@ const userSchema = new mongoose.Schema(
     rewards: [RewardSchema] ,
     subscription: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "subscription",
+      ref: "Subscription",
     },
 
   },

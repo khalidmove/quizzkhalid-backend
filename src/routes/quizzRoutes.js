@@ -19,7 +19,7 @@ router.post("/update", quizz.update);
 router.delete("/delete/:id", quizz.delete);
 router.get("/addUserToQuiz/:id", authMiddleware(["user", "admin"]),quizz.addUserToQuiz);
 router.post("/removeUserFromQuiz/:id", authMiddleware(["user", "admin"]),quizz.removeUserFromQuiz);
-router.post("/submitanswer", quizz.submitanswer);
+router.post("/submitanswer", authMiddleware(["user", "admin"]),quizz.submitanswer);
 router.get("/fetchBackupQuestion/:id", quizz.fetchBackupQuestion);
 router.get("/userExistCheck/:id", quizz.userExistCheck);
 router.get("/playerNumbers/:id", quizz.playerNumbers);

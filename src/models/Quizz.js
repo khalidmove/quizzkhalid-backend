@@ -49,6 +49,14 @@ const QuizzModal = new mongoose.Schema(
         wrongAnswers: { type: Number, default: 0 },
         enteredBackup: { type: Boolean, default: false },
         completedBackup: { type: Boolean, default: false },
+        responses: [
+        {
+          questionId: mongoose.Schema.Types.ObjectId,
+          selectedAnswer: String,
+          isCorrect: Boolean,
+          timeTaken: Number
+        }
+      ]
       },
     ],
     isRankCalculated: { type: Boolean, default: false },

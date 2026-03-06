@@ -2,7 +2,6 @@
 const mongoose = require("mongoose");
 const TimeSlot = mongoose.model("TimeSlot");
 const response = require("../responses");
-const Subscription = require("../models/subscription");
 
 function timeToMinutes(t) {
   const [time, meridian] = t.split(" ");

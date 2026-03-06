@@ -234,63 +234,33 @@ const updatedQuiz = await Quizz.findById(quizId);
   },
   submitanswer: async (req, res) => {
     try {
-      //            const bulk = [];
-      // const submissionData=req?.body?.data
-
-      // submissionData.forEach(({ questionId, selectedOption }) => {
-      //   bulk.push({
-      //     updateOne: {
-      //       filter: {
-      //         "questions.que._id": questionId,
-      //       },
-      //       update: {
-      //         $inc: {
-      //           "questions.$[].que.$[q].option.$[opt].count": 1,
-      //         },
-      //       },
-      //       arrayFilters: [
-      //         { "q._id": questionId },
-      //         { "opt.name": selectedOption },
-      //       ],
-      //     },
-      //   });
-      // });
-
-      // await Quizz.bulkWrite(bulk);
-      // const { quizId, questionId } = req.params;
-      const { selectedOption, quizId, questionId } = req.body;
-      // console.log(selectedOption,quizId,questionId)
-      // const quiz = await Quizz.findById(quizId);
-
-      // for (const level of quiz.questions) {
-      //   const question = level.que.find(q => q._id.toString() === questionId);
-      //   if (question) {
-      //     const option = question.option.find(o => o.name === selectedOption);
-      //     if (option) {
-      //       option.count += 1;
-      //       await quiz.save();
-      //       return res.json({ status: true, message: "Count incremented via fallback" });
-      //     }
-      //   }
-      // }
+      const { selectedOption, quizId, questionId ,isCorrect,timeTaken} = req.body;
 
       await Quizz.updateOne(
-        {
-          _id: quizId,
-          'questions.que._id': questionId,
-        },
-        {
-          $inc: {
-            'questions.$[].que.$[q].option.$[o].count': 1,
-          },
-        },
-        {
-          arrayFilters: [
-            { 'q._id': new mongoose.Types.ObjectId(questionId) },
-            { 'o.name': selectedOption },
-          ],
-        },
-      );
+  {
+    _id: quizId,
+    "users.user": req.user.id
+  },
+  {
+    $inc: {
+      "questions.$[].que.$[q].option.$[o].count": 1
+    },
+    $push: {
+      "users.$.responses": {
+        questionId: questionId,
+        selectedAnswer: selectedOption,
+        isCorrect: isCorrect,
+        timeTaken: timeTaken
+      }
+    }
+  },
+  {
+    arrayFilters: [
+      { "q._id": questionId },
+      { "o.name": selectedOption }
+    ]
+  }
+);
       return response.success(res, { message: 'Quizz updated successfully' });
     } catch (error) {
       return response.error(res, error);
