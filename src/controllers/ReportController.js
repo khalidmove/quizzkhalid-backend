@@ -2,6 +2,7 @@ const User = require('@models/User');
 const response = require('@responses/index');
 const Quizz = require('@models/Quizz');
 const Question = require('@models/Questions');
+const Notification = require('@models/Notification');
 const ExcelJS = require("exceljs");
 
 module.exports = {
@@ -462,5 +463,322 @@ try {
     console.error(error);
     res.status(500).json({ success: false, message: error.message });
   }
-}
+},
+exportNotifications : async (req, res) => {
+  try {
+    const notifications = await Notification.find()
+      .populate("for", "name email")
+      .lean();
+
+    if (!notifications.length) {
+      return res.status(404).json({
+        success: false,
+        message: "No notifications found",
+      });
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = "Admin";
+    workbook.created = new Date();
+
+    // =====================================================
+    // ✅ SHEET 1 → NOTIFICATION SUMMARY
+    // =====================================================
+
+    const summarySheet = workbook.addWorksheet("Notification Summary");
+
+    summarySheet.columns = [
+      { header: "Title", key: "title", width: 30 },
+      { header: "Description", key: "description", width: 50 },
+      { header: "Total Users", key: "totalUsers", width: 15 },
+      { header: "Created At", key: "createdAt", width: 20 },
+    ];
+    summarySheet.getColumn("totalUsers").alignment = { horizontal: "center" };
+
+    notifications.forEach(n => {
+      summarySheet.addRow({
+        title: n.title,
+        description: n.description,
+        totalUsers: n.for?.length || 0,
+        createdAt: new Date(n.createdAt).toLocaleString(),
+      });
+    });
+
+    // =====================================================
+    // ✅ SHEET 2 → DETAILED USER DATA
+    // =====================================================
+
+    const detailSheet = workbook.addWorksheet("Notification Users");
+
+    detailSheet.columns = [
+      { header: "Title", key: "title", width: 30 },
+      { header: "Description", key: "description", width: 40 },
+      { header: "User Name", key: "name", width: 25 },
+      { header: "Email", key: "email", width: 30 },
+      { header: "Created At", key: "createdAt", width: 20 },
+    ];
+
+    notifications.forEach(n => {
+      (n.for || []).forEach(user => {
+        detailSheet.addRow({
+          title: n.title,
+          description: n.description,
+          name: user?.name,
+          email: user?.email,
+          createdAt: new Date(n.createdAt).toLocaleString(),
+        });
+      });
+    });
+
+    // =====================================================
+    // 🎨 OPTIONAL STYLING (LIKE YOUR PREVIOUS)
+    // =====================================================
+
+    [summarySheet, detailSheet].forEach(sheet => {
+      const headerRow = sheet.getRow(1);
+
+      headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+      headerRow.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FF2F75B5" }
+      };
+
+      headerRow.alignment = { horizontal: "center", vertical: "middle" };
+
+      headerRow.eachCell(cell => {
+        cell.border = {
+          top: { style: "thin" },
+          bottom: { style: "thin" },
+          left: { style: "thin" },
+          right: { style: "thin" }
+        };
+      });
+    });
+
+    // =====================================================
+    // 📥 DOWNLOAD
+    // =====================================================
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=Notifications_${Date.now()}.xlsx`
+    );
+
+    await workbook.xlsx.write(res);
+    res.end();
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+},
+exportLeaderboard : async (req, res) => {
+  try {
+
+    const pipeline = [
+      {
+        $match: {
+          "users.rank": { $ne: null }
+        }
+      },
+      {
+        $sort: {
+          scheduledDate: -1,
+          scheduledTime: -1
+        }
+      },
+      {
+        $project: {
+          name: 1,
+          scheduledDate: 1,
+          scheduledTime: 1,
+          users: {
+            $slice: [
+              {
+                $filter: {
+                  input: "$users",
+                  as: "u",
+                  cond: { $lte: ["$$u.rank", 3] }
+                }
+              },
+              3
+            ]
+          }
+        }
+      },
+      {
+        $lookup: {
+          from: "users",
+          let: { uid: "$users.user" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $in: ["$_id", "$$uid"] }
+              }
+            },
+            {
+              $project: {
+                name: 1,
+                email: 1
+              }
+            }
+          ],
+          as: "userData"
+        }
+      },
+      {
+        $addFields: {
+          users: {
+            $map: {
+              input: "$users",
+              as: "u",
+              in: {
+                rank: "$$u.rank",
+                correctAnswers: "$$u.correctAnswers",
+                wrongAnswers: "$$u.wrongAnswers",
+                totalTimeTaken: "$$u.totalTimeTaken",
+                user: {
+                  $first: {
+                    $filter: {
+                      input: "$userData",
+                      as: "info",
+                      cond: { $eq: ["$$info._id", "$$u.user"] }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        $project: { userData: 0 }
+      }
+    ];
+
+    const data = await Quizz.aggregate(pipeline);
+
+    // =====================================================
+    // 📊 CREATE EXCEL
+    // =====================================================
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Leaderboard", {
+      views: [{ state: "frozen", ySplit: 1 }]
+    });
+
+    sheet.columns = [
+      { header: "Quiz Name", key: "quiz", width: 25 },
+      { header: "Date", key: "date", width: 15 },
+      { header: "Time", key: "time", width: 12 },
+      { header: "Rank", key: "rank", width: 10 },
+      { header: "User Name", key: "name", width: 25 },
+      { header: "Email", key: "email", width: 30 },
+      { header: "Correct", key: "correct", width: 10 },
+      { header: "Wrong", key: "wrong", width: 10 },
+      { header: "Total Time (sec)", key: "timeTaken", width: 18 },
+    ];
+
+    // ================= HEADER STYLE =================
+    const headerRow = sheet.getRow(1);
+    headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    headerRow.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FF2F75B5" }
+    };
+    headerRow.alignment = { horizontal: "center" };
+
+    // =====================================================
+    // 🧠 ADD DATA
+    // =====================================================
+
+    let rowIndex = 0;
+
+    data.forEach(quiz => {
+      quiz.users.forEach(u => {
+
+        const row = sheet.addRow({
+          quiz: quiz.name,
+          date: quiz.scheduledDate
+            ? new Date(quiz.scheduledDate).toLocaleDateString()
+            : "",
+          time: quiz.scheduledTime,
+          rank: u.rank,
+          name: u.user?.name,
+          email: u.user?.email,
+          correct: u.correctAnswers,
+          wrong: u.wrongAnswers,
+          timeTaken: u.totalTimeTaken
+        });
+
+        // 🎨 Alternate row color
+        if (rowIndex % 2 === 0) {
+          row.fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: "FFF2F2F2" }
+          };
+        }
+
+        // 🏆 Rank Highlight
+        if (u.rank === 1) {
+          row.getCell("rank").fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: "FFFFD700" }
+          };
+        }
+
+        if (u.rank === 2) {
+          row.getCell("rank").fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: "FFC0C0C0" }
+          };
+        }
+
+        if (u.rank === 3) {
+          row.getCell("rank").fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: "FFCD7F32" }
+          };
+        }
+
+        rowIndex++;
+      });
+    });
+
+    // =====================================================
+    // 📥 DOWNLOAD
+    // =====================================================
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=Leaderboard_${Date.now()}.xlsx`
+    );
+
+    await workbook.xlsx.write(res);
+    res.end();
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+},
 };
