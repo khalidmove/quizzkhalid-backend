@@ -79,7 +79,7 @@ module.exports = {
   updateClaimReward: async (req, res) => {
     try {
        await ClaimReward.findByIdAndUpdate(req?.params?.id, {
-        $set: { status: "Approved" },
+        $set: { status: "Approved", approvedAt: new Date() },
       });
 
 

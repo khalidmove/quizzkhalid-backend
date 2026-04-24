@@ -3,11 +3,12 @@ const response = require('@responses/index');
 const Quizz = require('@models/Quizz');
 const Question = require('@models/Questions');
 const Notification = require('@models/Notification');
+const ClaimReward = require('@models/claimReward');
 const ExcelJS = require("exceljs");
 
 module.exports = {
   
-  exportQuizData: async (req, res) => {
+exportQuizData: async (req, res) => {
     try {
   const { quizId } = req.params;
 
@@ -579,6 +580,111 @@ exportNotifications : async (req, res) => {
       success: false,
       message: error.message,
     });
+  }
+},
+exportClaimReport: async (req, res) => {
+  try {
+    const claims = await ClaimReward.find()
+      .sort({ createdAt: -1 })
+      .populate("req_user", "name email")
+      .lean();
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = "Admin";
+    workbook.created = new Date();
+
+    // =====================================================
+    // SHEET 1 → SUMMARY
+    // =====================================================
+
+    const summarySheet = workbook.addWorksheet("Summary");
+
+    summarySheet.columns = [
+      { header: "Metric", key: "metric", width: 30 },
+      { header: "Value",  key: "value",  width: 20 },
+    ];
+
+    const totalClaims   = claims.length;
+    const pendingClaims = claims.filter(c => c.status === "Pending").length;
+    const paidClaims    = claims.filter(c => c.status === "Approved").length;
+    const totalAmount   = claims.reduce((sum, c) => sum + (c.points || 0), 0);
+    const paidAmount    = claims.filter(c => c.status === "Approved").reduce((sum, c) => sum + (c.points || 0), 0);
+
+    summarySheet.addRows([
+      { metric: "Total Claims",   value: totalClaims },
+      { metric: "Pending",        value: pendingClaims },
+      { metric: "Paid (Approved)", value: paidClaims },
+      { metric: "Total Amount",   value: totalAmount },
+      { metric: "Total Paid Amount", value: paidAmount },
+    ]);
+
+    const summaryHeader = summarySheet.getRow(1);
+    summaryHeader.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    summaryHeader.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2F75B5" } };
+    summaryHeader.alignment = { horizontal: "center" };
+
+    // =====================================================
+    // SHEET 2 → CLAIM DETAILS
+    // =====================================================
+
+    const detailSheet = workbook.addWorksheet("Claim Details");
+
+    detailSheet.columns = [
+      { header: "User Name",        key: "name",        width: 25 },
+      { header: "Email",            key: "email",       width: 30 },
+      { header: "Amount (Points)",  key: "amount",      width: 18 },
+      { header: "Payout Status",    key: "status",      width: 18 },
+      { header: "Requested At",     key: "requestedAt", width: 22 },
+      { header: "Approved/Paid At", key: "approvedAt",  width: 22 },
+    ];
+
+    claims.forEach(claim => {
+      detailSheet.addRow({
+        name:        claim.req_user?.name  || "—",
+        email:       claim.req_user?.email || "—",
+        amount:      claim.points || 0,
+        status:      claim.status === "Approved" ? "Paid" : "Pending",
+        requestedAt: new Date(claim.createdAt).toLocaleString(),
+        approvedAt:  claim.approvedAt ? new Date(claim.approvedAt).toLocaleString() : "—",
+      });
+    });
+
+    const detailHeader = detailSheet.getRow(1);
+    detailHeader.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    detailHeader.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2F75B5" } };
+    detailHeader.alignment = { horizontal: "center" };
+
+    detailHeader.eachCell(cell => {
+      cell.border = {
+        top: { style: "thin" }, bottom: { style: "thin" },
+        left: { style: "thin" }, right: { style: "thin" },
+      };
+    });
+
+    // colour rows by status
+    detailSheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return;
+      const statusCell = row.getCell("status");
+      if (statusCell.value === "Paid") {
+        row.getCell("status").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD4EDDA" } };
+      } else {
+        row.getCell("status").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF3CD" } };
+      }
+    });
+
+    // =====================================================
+    // DOWNLOAD
+    // =====================================================
+
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename=Claim_Report_${Date.now()}.xlsx`);
+
+    await workbook.xlsx.write(res);
+    res.end();
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: error.message });
   }
 },
 exportLeaderboard : async (req, res) => {

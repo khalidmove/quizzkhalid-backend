@@ -11,10 +11,13 @@ const claimRewardSchema = new mongoose.Schema(
       type: Number,
     },
     status: {
-        type: String,
-        default: 'Pending',
-        enum:['Pending','Approved']
-      },
+      type: String,
+      default: 'Pending',
+      enum: ['Pending', 'Approved'],
+    },
+    approvedAt: {
+      type: Date,
+    },
   },
   {
     timestamps: true,

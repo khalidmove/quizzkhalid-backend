@@ -9,5 +9,6 @@ router.get('/exportQuestionReport',authMiddleware(['admin']),ReportController.ex
 router.get('/exportQuizUserReport/:quizId',authMiddleware(['admin']),ReportController.exportQuizUserReport,);
 router.get('/exportNotifications',authMiddleware(['admin']),ReportController.exportNotifications,);
 router.get('/exportLeaderboard',authMiddleware(['admin']),ReportController.exportLeaderboard,);
+router.get('/exportClaimReport',authMiddleware(['admin']),ReportController.exportClaimReport,);
 
 module.exports = router;
